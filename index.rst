@@ -1,13 +1,9 @@
 BrainPy Examples
 ================
 
-``BrainModels`` provides `BrainPy <https://brainpy.readthedocs.io/>`_
-implementations of standard and canonical brain models (including various
-neurons, synapses, networks, and intuitive paper examples).
-Moreover, we welcome your model implementations, and publish them
-through our `GitHub <https://github.com/PKU-NIP-Lab/BrainModels>`_ homepage.
-In such a way, once your new model is created, it can be easily shared
-with other BrainPy users.
+
+This repository contains examples of using `BrainPy <https://brainpy.readthedocs.io/>`_
+to implement various neuron models or network models.
 
 
 .. toctree::
@@ -84,6 +80,7 @@ with other BrainPy users.
    working_memory/Mi_2017_working_memory_capacity.ipynb
    working_memory/Bouchacourt_2019_Flexible_working_memory.ipynb
    ../recurrent_networks/Masse_2019_STP_RNN.ipynb
+
 
 
 Indices and tables
