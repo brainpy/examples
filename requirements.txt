@@ -4,3 +4,4 @@ Jinja2
 sphinx
 sphinx_rtd_theme
 nbsphinx
+brain-py
