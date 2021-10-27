@@ -27,7 +27,7 @@
 # - Chaoming Wang (chao.brain@qq.com)
 
 # %% [markdown]
-# The mathematical equation of the Continuous-attractor Neural Network (cann) is given by:
+# The mathematical equation of the Continuous-Attractor Neural Network (CANN) is given by:
 #
 # $$\tau \frac{du(x,t)}{dt} = -u(x,t) + \rho \int dx' J(x,x') r(x',t)+I_{ext}$$
 #
@@ -122,7 +122,7 @@ bp.visualize.animate_1D(
 )
 
 # %% [markdown]
-# <img src="../images/cann-encoding.gif">
+# ![](../images/cann-encoding.gif)
 
 # %% [markdown]
 # ## Template matching
@@ -153,7 +153,7 @@ bp.visualize.animate_1D(
 )
 
 # %% [markdown]
-# <img src="../images/cann-decoding.gif">
+# ![](../images/cann-decoding.gif)
 
 # %% [markdown]
 # ## Smooth tracking
@@ -184,4 +184,4 @@ bp.visualize.animate_1D(
 )
 
 # %% [markdown]
-# <img src="../images/cann-tracking.gif">
+# ![](../images/cann-tracking.gif)
