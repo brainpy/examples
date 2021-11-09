@@ -244,7 +244,7 @@ class IntegratorRNN(bp.DynamicalSystem):
   
   def predict(self, xs):
     self.h[:] = self.h0
-    scan = bm.easy_loop(self.update, dyn_vars=self.vars().unique(), out_vars=[self.h, self.o])
+    scan = bm.make_loop(self.update, dyn_vars=self.vars().unique(), out_vars=[self.h, self.o])
     return scan(xs)
 
   def loss(self, inputs, targets):

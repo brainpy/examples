@@ -6,9 +6,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.4
+#       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -48,14 +48,13 @@ class LIF(bp.NeuGroup):
     
     self.V = bp.math.Variable(bp.math.zeros(size))
     self.spike = bp.math.Variable(bp.math.zeros(size))
+    self.integral = bp.odeint(self.derivative)
 
-  @staticmethod
-  @bp.odeint
-  def int_f(V, t):
+  def derivative(self, V, t):
     return (-V + inputs + 2 * bp.math.sin(2 * bp.math.pi * t / tau)) / tau
 
   def update(self, _t, _dt):
-    V = self.int_f(self.V, _t)
+    V = self.integral(self.V, _t)
     self.spike[:] = bp.math.asarray(V >= Vth, dtype=bp.math.float_)
     self.V[:] = bp.math.where(self.spike > 0., Vr, V)
 

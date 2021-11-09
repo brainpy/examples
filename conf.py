@@ -10,18 +10,12 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
-
 
 # -- Project information -----------------------------------------------------
 
 project = 'BrainPy Examples'
 copyright = '2021, BrainExamples'
 author = 'BrainPy team'
-
-# The full version, including alpha/beta/rc tags
-# release = '0.0.0'
-
 
 # -- General configuration ---------------------------------------------------
 

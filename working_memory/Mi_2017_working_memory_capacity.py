@@ -72,34 +72,32 @@ class WorkingMemoryModel(bp.NeuGroup):
   def __init__(self, size, **kwargs):
     super(WorkingMemoryModel, self).__init__(size, **kwargs)
 
-    self.inh_h = 0.
+    self.hi = 0.
     self.u = bp.math.ones(cluster_num) * U
     self.x = bp.math.ones(cluster_num)
     self.h = bp.math.zeros(cluster_num)
     self.input = bp.math.zeros(cluster_num)
-    self.inh_r = self.log(self.inh_h)
+    self.inh_r = self.log(self.hi)
     self.r = self.log(self.h)
 
-  @bp.odeint
-  def int_exc(self, u, x, h, t, r, r_inh, Iext):
+    self.integral = bp.odeint(self.derivative)
+
+  def derivative(self, u, x, h, hi, t, r, r_inh, Iext):
     du = (U - u) / tau_f + U * (1 - u) * r
     dx = (1 - x) / tau_d - u * x * r
     dh = (-h + J_EE * u * x * r - J_EI * r_inh + Iext + Ib) / tau
-    return du, dx, dh
-
-  @bp.odeint
-  def int_inh(self, h, t, r_exc):
-    return (-h + J_IE * bp.math.sum(r_exc) + Iinh) / tau_I
+    dhi = (-hi + J_IE * bp.math.sum(r) + Iinh) / tau_I
+    return du, dx, dh, dhi
 
   def log(self, h):
     return alpha * bp.math.log(1. + bp.math.exp(h / alpha))
 
   def update(self, _t, _dt):
-    self.u, self.x, self.h = self.int_exc(self.u, self.x, self.h, _t,
-                                          self.r, self.inh_r, self.input)
-    self.inh_h = self.int_inh(self.inh_h, _t, self.r)
+    self.u, self.x, self.h, self.hi = self.int_exc(
+      self.u, self.x, self.h, self.hi, _t,
+      self.r, self.inh_r, self.input)
     self.r = self.log(self.h)
-    self.inh_r = self.log(self.inh_h)
+    self.inh_r = self.log(self.hi)
     self.input = 0.
 
 

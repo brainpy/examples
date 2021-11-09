@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.4
+#       jupytext_version: 1.11.5
 #   kernelspec:
 #     display_name: brainpy
 #     language: python
@@ -26,8 +26,6 @@
 import brainpy as bp
 import brainpy.math as bm
 import matplotlib.pyplot as plt
-
-bp.__version__
 
 bm.use_backend('jax')
 
@@ -73,9 +71,10 @@ class LIF(bp.NeuGroup):
     self.spike = bm.Variable(bm.zeros(self.num, dtype=bool))
     self.refractory = bm.Variable(bm.zeros(self.num, dtype=bool))
     self.t_last_spike = bm.Variable(bm.ones(self.num) * -1e7)
+    
+    self.integral = bp.odeint(self.derivative)
 
-  @bp.odeint
-  def integral(self, V, t, Iext):
+  def derivative(self, V, t, Iext):
     dVdt = (- self.gL * (V - self.V_L) - Iext) / self.Cm
     return dVdt
 
@@ -167,16 +166,18 @@ class AMPA_One(bp.TwoEndConn):
     # variables
     self.pre_spike = self.register_constant_delay('ps', size=self.pre.num, delay=delay)
     self.s = bm.Variable(bm.zeros(self.pre.num))
+    
+    # function
+    self.integral = bp.odeint(self.derivative)
 
-  @bp.odeint
-  def int_s(self, s, t):
+  def derivative(self, s, t):
     ds = - s / self.tau
     return ds
 
   def update(self, _t, _dt):
     self.pre_spike.push(self.pre.spike)
     pre_spike = self.pre_spike.pull()
-    self.s[:] = self.int_s(self.s, _t)
+    self.s[:] = self.integral(self.s, _t)
     self.s += pre_spike * self.g_max
     self.post.input += self.s * (self.post.V - self.E)
 
@@ -197,16 +198,18 @@ class AMPA(bp.TwoEndConn):
     self.pre_spike = self.register_constant_delay('ps', size=self.pre.num, delay=delay)
     self.pre_one = bm.Variable(bm.ones(self.pre.num))
     self.s = bm.Variable(bm.zeros(self.size))
+    
+    # function
+    self.integral = bp.odeint(self.derivative)
 
-  @bp.odeint
-  def int_s(self, s, t):
+  def derivative(self, s, t):
     ds = - s / self.tau
     return ds
 
   def update(self, _t, _dt):
     self.pre_spike.push(self.pre.spike)
     pre_spike = self.pre_spike.pull()
-    self.s[:] = self.int_s(self.s, _t)
+    self.s[:] = self.integral(self.s, _t)
     self.s += (pre_spike * self.g_max).reshape((-1, 1))
     self.post.input += bm.dot(self.pre_one, self.s) * (self.post.V - self.E)
 
@@ -251,9 +254,11 @@ class NMDA(bp.TwoEndConn):
     self.pre_one = bm.Variable(bm.ones(self.pre.num))
     self.s = bm.Variable(bm.zeros(self.size))
     self.x = bm.Variable(bm.zeros(self.size))
+    
+    # function
+    self.integral = bp.odeint(self.derivative)
 
-  @bp.odeint
-  def integral(self, s, x, t):
+  def derivative(self, s, x, t):
     dsdt = -s / self.tau_decay + self.alpha * x * (1 - s)
     dxdt = -x / self.tau_rise
     return dsdt, dxdt

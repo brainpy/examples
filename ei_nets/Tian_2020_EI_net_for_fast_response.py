@@ -7,9 +7,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.4
+#       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -71,13 +71,14 @@ class LIF(bp.NeuGroup):
     self.spike = bp.math.Variable(bp.math.zeros(size, dtype=bool))
     self.input = bp.math.Variable(bp.math.zeros(size))
 
-  @bp.odeint
-  def int_V(self, V, t, Isyn):
+    self.integral = bp.odeint(self.derivative)
+
+  def derivative(self, V, t, Isyn):
     return (-V + Isyn) / self.tau
 
   def update(self, _t, _dt):
     for i in range(self.num):
-      V = self.int_V(self.V[i], _t, self.input[i])
+      V = self.integral(self.V[i], _t, self.input[i])
       if V >= V_threshold:
         self.spike[i] = True
         V = V_reset
@@ -106,12 +107,13 @@ class Syn(bp.TwoEndConn):
     # variables
     self.s = bp.math.Variable(bp.math.zeros(post.num))
 
-  @bp.odeint
-  def ints(self, s, t):
+    self.integral = bp.odeint(self.derivative)
+
+  def derivative(self, s, t):
     return - s / self.tau
 
   def update(self, _t, _dt):
-    self.s[:] = self.ints(self.s, _t)
+    self.s[:] = self.integral(self.s, _t)
     for pre_i, spike in enumerate(self.pre.spike):
       if spike:
         for post_i in self.pre2post[pre_i]:

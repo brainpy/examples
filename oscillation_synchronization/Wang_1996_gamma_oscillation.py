@@ -7,9 +7,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.4
+#       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -61,8 +61,10 @@ class GABAa(bp.TwoEndConn):
     self.t_last_pre_spike = bp.math.Variable(bp.math.ones(self.size) * -1e7)
     self.g = self.register_constant_delay('g', size=self.size, delay=delay)
 
-  @bp.odeint
-  def int_s(self, s, t, TT):
+    # function
+    self.integral = bp.odeint(self.derivative)
+
+  def derivative(self, s, t, TT):
     return self.alpha * TT * (1 - s) - self.beta * s
 
   def update(self, _t, _dt):
@@ -70,7 +72,7 @@ class GABAa(bp.TwoEndConn):
       if self.pre.spike[i] > 0:
         self.t_last_pre_spike[i] = _t
     TT = ((_t - self.t_last_pre_spike) < self.T_duration) * self.T
-    self.s[:] = self.int_s(self.s, _t, TT)
+    self.s[:] = self.integral(self.s, _t, TT)
     self.g.push(self.g_max * self.s)
     g = self.g.pull()
     self.post.input[:] -= bp.math.sum(g, axis=0) * (self.post.V - self.E)
@@ -119,8 +121,10 @@ class HH(bp.NeuGroup):
     self.spike = bp.math.Variable(bp.math.zeros(size, dtype=bool))
     self.input = bp.math.Variable(bp.math.zeros(size))
 
-  @bp.odeint
-  def integral(self, V, h, n, t, Iext):
+    # integral
+    self.integral = bp.odeint(self.derivative)
+
+  def derivative(self, V, h, n, t, Iext):
     alpha = 0.07 * bp.math.exp(-(V + 58) / 20)
     beta = 1 / (bp.math.exp(-0.1 * (V + 28)) + 1)
     dhdt = alpha * (1 - h) - beta * h
@@ -177,9 +181,3 @@ bp.visualize.raster_plot(neu.mon.ts, neu.mon.spike, show=True)
 # **Reference**:
 #
 # - Wang, Xiao-Jing, and György Buzsáki. “Gamma oscillation by synaptic inhibition in a hippocampal interneuronal network model.” Journal of neuroscience 16.20 (1996): 6402-6413.
-
-# %% [markdown]
-#
-# **Author**:
-#
-# - Chaoming Wang (chao.brain@qq.com)

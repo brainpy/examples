@@ -182,7 +182,7 @@ class Model(bp.DynamicalSystem):
 
   def predict(self, inputs):
     self.h[:] = self.init_h
-    scan = bm.easy_loop(f=self.update,
+    scan = bm.make_loop(body_fun=self.update,
                         dyn_vars=[self.x, self.u, self.h, self.y],
                         out_vars=[self.y, self.h])
     logits, hist_h = scan(inputs)

@@ -7,11 +7,11 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.4
+#       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: brainmodels
+#     display_name: brainpy
 #     language: python
-#     name: brainmodels
+#     name: brainpy
 # ---
 
 # %% [markdown]
@@ -94,15 +94,16 @@ class LIF(bp.NeuGroup):
     self.t_spike = bp.math.Variable(-1e7 * bp.math.ones(size))
     self.spike = bp.math.Variable(bp.math.zeros(size, dtype=bool))
 
-  @bp.odeint
-  def int_V(self, V, t, Isyn):
+    self.integral = bp.odeint(self.derivative)
+
+  def derivative(self, V, t, Isyn):
     return (Isyn + (El - V)) / taum
 
   def update(self, _t, _dt):
     for i in range(self.num):
       self.spike[i] = 0.
       if (_t - self.t_spike[i]) > ref:
-        V = self.int_V(self.V[i], _t, self.Isyn[i])
+        V = self.integral(self.V[i], _t, self.Isyn[i])
         self.spike[i] = 0.
         if V >= Vt:
           self.V[i] = Vr
@@ -127,13 +128,14 @@ class Syn(bp.TwoEndConn):
     self.pre2post = self.conn.requires('pre2post')  # connections
     self.g = bp.math.Variable(bp.math.zeros(post.num))  # variables
 
-  @bp.odeint
-  def int_g(self, g, t):
+    self.integral = bp.odeint(self.derivative)
+
+  def derivative(self, g, t):
     dg = - g / self.tau
     return dg
 
   def update(self, _t, _dt):
-    self.g[:] = self.int_g(self.g, _t)
+    self.g[:] = self.integral(self.g, _t)
     for pre_id in range(self.pre.num):
       if self.pre.spike[pre_id] > 0.:
         post_ids = self.pre2post[pre_id]

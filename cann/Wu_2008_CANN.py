@@ -8,7 +8,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -43,14 +43,7 @@ import brainpy as bp
 
 # %%
 class CANN1D(bp.NeuGroup):
-  @bp.odeint
-  def int_u(self, u, t, Iext):
-    r1 = bp.math.square(u)
-    r2 = 1.0 + self.k * bp.math.sum(r1)
-    r = r1 / r2
-    Irec = bp.math.dot(self.conn_mat, r)
-    du = (-u + Irec + Iext) / self.tau
-    return du
+  
 
   def __init__(self, num, tau=1., k=8.1, a=0.5, A=10., J0=4.,
                z_min=-bp.math.pi, z_max=bp.math.pi, **kwargs):
@@ -77,6 +70,17 @@ class CANN1D(bp.NeuGroup):
 
     # The connection matrix
     self.conn_mat = self.make_conn(self.x)
+    
+    # function
+    self.integral = op.odeint(self.derivative)
+
+  def derivative(self, u, t, Iext):
+    r1 = bp.math.square(u)
+    r2 = 1.0 + self.k * bp.math.sum(r1)
+    r = r1 / r2
+    Irec = bp.math.dot(self.conn_mat, r)
+    du = (-u + Irec + Iext) / self.tau
+    return du
 
   def dist(self, d):
     d = bp.math.remainder(d, self.z_range)
@@ -96,9 +100,8 @@ class CANN1D(bp.NeuGroup):
     return self.A * bp.math.exp(-0.25 * bp.math.square(self.dist(self.x - pos) / self.a))
 
   def update(self, _t, _dt):
-    self.u[:] = self.int_u(self.u, _t, self.input)
+    self.u[:] = self.integral(self.u, _t, self.input)
     self.input[:] = 0.
-
 
 # %% [markdown]
 # ## Population coding

@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.4
+#       jupytext_version: 1.11.5
 #   kernelspec:
 #     display_name: brainpy
 #     language: python
@@ -64,12 +64,14 @@ class Groups(bp.NeuGroup):
     self.not_ref = bp.math.Variable(bp.math.ones(self.num))
     self.t_last_spike = bp.math.Variable(bp.math.ones(self.num) * -1e7)
 
+  @staticmethod
   @bp.odeint
-  def int_V(self, V, t, x):
+  def int_V(V, t, x):
     return (-(V - Vr) + x) / tau_m
 
+  @staticmethod
   @bp.odeint
-  def int_x(self, x, t, y):
+  def int_x(x, t, y):
     return (-x + y) / tau_psp
 
   @staticmethod

@@ -152,8 +152,7 @@ def get_activity_vector(rates):
 class PoissonNeuron(bp.NeuGroup):
   target_backend = 'numpy'
 
-  @bp.odeint(method='exponential_euler')
-  def int_s(self, s, t):
+  def derivative(self, s, t):
     ds = -s / tau
     return ds
 
@@ -164,6 +163,8 @@ class PoissonNeuron(bp.NeuGroup):
     self.r = bp.math.Variable(bp.math.zeros(self.num))
     self.input = bp.math.Variable(bp.math.zeros(self.num))
     self.spike = bp.math.Variable(bp.math.zeros(self.num, dtype=bool))
+
+    self.int_s = bp.odeint(self.derivative, method='exponential_euler')
 
   def update(self, _t, _dt):
     self.s[:] = self.int_s(self.s, _t)

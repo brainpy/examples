@@ -26,26 +26,7 @@ class EchoStateNet(bp.DynamicalSystem):
     \frac{dh}{dt} = -h + W_{ir} * x + W_{rr} * r + W_{or} * z \\
     r = \tanh(h) \\
     o = W_{ro} * r
-
-  Parameters
-  ----------
-  num_input : int
-    dim of the input
-  num_hidden : int
-    dim of the hidden state
-  num_output : int
-    dim of the output
-  tau : float
-    "neuronal" time constant
-  dt : float
-    time between Euler integration up
-  g : float
-    scaling of the recurrent matrix in the reservoir
-  alpha : float
-    initial learning rate
   """
-
-  target_backend = 'jax'
 
   def __init__(self, num_input, num_hidden, num_output,
                tau=1.0, dt=0.1, g=1.8, alpha=1.0, **kwargs):
@@ -68,12 +49,13 @@ class EchoStateNet(bp.DynamicalSystem):
     self.w_ro = bm.Variable(w_ro)
 
     # variables
-    self.h = bm.Variable(bm.random.normal(size=num_hidden) * 0.25)  # hidden
+    self.h = bm.Variable(bm.random.normal(size=num_hidden) * 0.5)  # hidden
     self.r = bm.tanh(self.h)  # firing rate
     self.o = bm.Variable(bm.dot(self.r, w_ro))  # output unit
     self.P = bm.Variable(bm.eye(num_hidden) * self.alpha)  # inverse correlation matrix
 
-  def update(self, x, **kwargs):
+  def update(self, x):
+    # update the hidden and output state
     dhdt = -self.h + bm.dot(x, self.w_ir)
     dhdt += bm.dot(self.r, self.w_rr)
     dhdt += bm.dot(self.o, self.w_or)
@@ -82,18 +64,18 @@ class EchoStateNet(bp.DynamicalSystem):
     self.o.value = bm.dot(self.r, self.w_ro)
 
   def rls(self, target):
-    # update inverse correlation matrix
+    # update the inverse correlation matrix
     k = bm.expand_dims(bm.dot(self.P, self.r), axis=1)  # (num_hidden, 1)
     hPh = bm.dot(self.r.T, k)  # (1,)
     c = 1.0 / (1.0 + hPh)  # (1,)
-    self.P -= bm.dot(k * c, k.T) # (num_hidden, num_hidden)
+    self.P -= bm.dot(k * c, k.T)  # (num_hidden, num_hidden)
     # update the output weights
     e = bm.atleast_2d(self.o - target)  # (1, num_output)
     dw = bm.dot(-c * k, e)  # (num_hidden, num_output)
     self.w_ro += dw
 
   def simulate(self, xs):
-    f = bm.easy_loop(self.update, dyn_vars=[self.h, self.r, self.o], out_vars=[self.r, self.o])
+    f = bm.make_loop(self.update, dyn_vars=[self.h, self.r, self.o], out_vars=[self.r, self.o])
     return f(xs)
 
   def train(self, xs, targets):
@@ -102,7 +84,7 @@ class EchoStateNet(bp.DynamicalSystem):
       self.update(input)
       self.rls(target)
 
-    f = bm.easy_loop(_f, dyn_vars=self.vars(), out_vars=[self.r, self.o])
+    f = bm.make_loop(_f, dyn_vars=self.vars(), out_vars=[self.r, self.o])
     return f([xs, targets])
 
 

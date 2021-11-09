@@ -7,11 +7,11 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.4
+#       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: brainmodels
+#     display_name: brainpy
 #     language: python
-#     name: brainmodels
+#     name: brainpy
 # ---
 
 # %% [markdown]
@@ -117,8 +117,9 @@ class HH(bp.NeuGroup):
     self.spike = bp.math.Variable(bp.math.zeros(self.num, dtype=bool))
     self.Isyn = bp.math.Variable(bp.math.zeros(size))
 
-  @bp.odeint(method='exponential_euler')
-  def integral(self, V, m, h, n, t, Isyn):
+    self.integral = bp.odeint(self.derivative, method='exponential_euler')
+
+  def derivative(self, V, m, h, n, t, Isyn):
     g_na = g_Na * (m * m * m) * h
     g_kd = g_Kd * (n * n * n * n)
     dVdt = (-gl * (V - El) - g_na * (V - ENa) - g_kd * (V - EK) + Isyn) / Cm
@@ -162,13 +163,14 @@ class Syn(bp.TwoEndConn):
     self.pre2post = self.conn.requires('pre2post')  # connections
     self.g = bp.math.Variable(bp.math.zeros(post.num))  # variables
 
-  @bp.odeint(method='exponential_euler')
-  def int_g(self, g, t):
+    self.integral = bp.odeint(self.derivative, method='exponential_euler')
+
+  def derivative(self, g, t):
     dg = - g / self.tau
     return dg
 
   def update(self, _t, _dt):
-    self.g[:] = self.int_g(self.g, _t)
+    self.g[:] = self.integral(self.g, _t)
     for pre_id in range(self.pre.num):
       if self.pre.spike[pre_id]:
         post_ids = self.pre2post[pre_id]
