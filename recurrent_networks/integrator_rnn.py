@@ -291,6 +291,7 @@ for i in range(num_train):
     print(f"Run batch {i} in {time.time() - t0:0.3f} s, learning rate: "
           f"{lr():.5f}, training loss {loss:0.4f}")
 
+
     train_losses['total'].append(net.total_loss[0])
     train_losses['l2'].append(net.l2_loss[0])
     train_losses['mse'].append(net.mse_loss[0])
