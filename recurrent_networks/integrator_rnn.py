@@ -14,8 +14,6 @@ import brainpy.math.jax as bm
 
 bp.math.use_backend('jax')
 
-bp.__version__
-
 # %%
 import numpy as np
 import matplotlib.pyplot as plt
@@ -179,7 +177,7 @@ def plot_data(num_time, inputs, targets=None, outputs=None, errors=None, num_plo
 
 
 # %%
-@partial(bm.jit, dyn_vars=bp.ArrayCollector({'a': bm.random.DEFAULT}))
+@partial(bm.jit, dyn_vars=bp.TensorCollector({'a': bm.random.DEFAULT}))
 def build_inputs_and_targets(mean, scale):
   """Build white noise input and integration targets."""
 
@@ -266,14 +264,14 @@ net = IntegratorRNN(num_input=1, num_hidden=100, num_output=1, num_batch=num_bat
 plot_params(net)
 
 # %%
-lr = bm.optimizers.exponential_decay(lr=0.025, decay_steps=1, decay_rate=0.99975)
+lr = bm.optimizers.ExponentialDecay(lr=0.025, decay_steps=1, decay_rate=0.99975)
 optimizer = bm.optimizers.Adam(lr=lr, train_vars=net.train_vars(), eps=1e-1)
+grad_f = bm.grad(net.loss, dyn_vars=net.vars(), grad_vars=net.train_vars(), return_value=True)
 
 
 @bm.jit
 @bm.function(nodes=(net, optimizer))
 def train(inputs, targets):
-  grad_f = bm.grad(net.loss, vars=net.vars(), return_value=True)
   grads, loss =grad_f(inputs, targets)
   clipped_grads = bm.clip_by_norm(grads, max_grad_norm)
   optimizer.update(clipped_grads)
@@ -291,7 +289,7 @@ for i in range(num_train):
   loss = train(inputs=_ins, targets=_outs)
   if (i + 1) % 100 == 0:
     print(f"Run batch {i} in {time.time() - t0:0.3f} s, learning rate: "
-          f"{lr(optimizer.step[0]):.5f}, training loss {loss:0.4f}")
+          f"{lr():.5f}, training loss {loss:0.4f}")
 
     train_losses['total'].append(net.total_loss[0])
     train_losses['l2'].append(net.l2_loss[0])
