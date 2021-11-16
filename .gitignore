@@ -9,10 +9,6 @@ _build
 recurrent_networks/neurogym
 recurrent_networks/Untitled.ipynb
 recurrent_networks/Untitled1.ipynb
-recurrent_networks/ParametricWorkingMemory.ipynb
-recurrent_networks/ParametricWorkingMemory.py
-recurrent_networks/EI_RNN.ipynb
-recurrent_networks/EI_RNN.py
 .idea
 
 # Distribution / packaging

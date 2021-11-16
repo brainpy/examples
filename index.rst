@@ -69,8 +69,10 @@ to implement various neuron models or network models.
 
    recurrent_networks/Sussillo_Abbott_2009_FORCE_Learning.ipynb
    recurrent_networks/Laje_Buonomano_2013_robust_timing_rnn.ipynb
-   recurrent_networks/Masse_2019_STP_RNN.ipynb
    recurrent_networks/integrator_rnn.ipynb
+   recurrent_networks/Song_2016_EI_RNN.ipynb
+   recurrent_networks/Masse_2019_STP_RNN.ipynb
+   recurrent_networks/ParametricWorkingMemory.ipynb
 
 
 
