@@ -13,7 +13,6 @@ recurrent_networks/ParametricWorkingMemory.ipynb
 recurrent_networks/ParametricWorkingMemory.py
 recurrent_networks/EI_RNN.ipynb
 recurrent_networks/EI_RNN.py
-stp_rnn
 .idea
 
 # Distribution / packaging

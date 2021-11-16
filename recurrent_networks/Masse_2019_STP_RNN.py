@@ -7,25 +7,26 @@
 # - Masse, Nicolas Y., Guangyu R. Yang, H. Francis Song,
 #   Xiao-Jing Wang, and David J. Freedman. "Circuit mechanisms for
 #   the maintenance and manipulation of information in working
-#   memory." Nature neuroscience 22, no. 7 (2019): 1159-1167. 
-#   https://www.nature.com/articles/s41593-019-0414-3
+#   memory." Nature neuroscience 22, no. 7 (2019): 1159-1167.
 #
 # Thanks the corresponding GitHub code: https://github.com/nmasse/Short-term-plasticity-RNN
 #
-# Author: Chaoming Wang (chao.brain@qq.com)
+# The code for the implmentation of Task please refer to the [Masse_2019_STP_RNN_tasks.py](https://github.com/PKU-NIP-Lab/BrainPyExamples/blob/main/recurrent_networks/Masse_2019_STP_RNN_tasks.py).
+#
+# The analysis methods please refer to the original repository: https://github.com/nmasse/Short-term-plasticity-RNN/blob/master/analysis.py
 
 # %%
 import brainpy as bp
+bp.set_platform('cpu')
 import brainpy.math.jax as bm
-
 bp.math.use_backend('jax')
 
 # %%
 import os
 import math
 import pickle
-from stp_rnn.tasks import Task
-from stp_rnn import analysis
+import numpy as np
+from Masse_2019_STP_RNN_tasks import Task
 
 # %%
 # Time parameters
@@ -45,8 +46,6 @@ clip_max_grad_val = 0.1
 # Training specs
 batch_size = 1024
 learning_rate = 2e-2
-num_iterations = 2000
-iter_between_outputs = 5
 
 
 # %%
@@ -207,18 +206,43 @@ class Model(bp.DynamicalSystem):
 
 
 # %% [markdown]
+# ## Analysis
+
+# %%
+def get_perf(target, output, mask):
+  """Calculate task accuracy by comparing the actual network output to the desired output
+    only examine time points when test stimulus is on, e.g. when y[:,:,0] = 0 """
+  target = target.numpy()
+  output = output.numpy()
+  mask = mask.numpy()
+
+  mask_full = mask > 0
+  mask_test = mask_full * (target[:, :, 0] == 0)
+  mask_non_match = mask_full * (target[:, :, 1] == 1)
+  mask_match = mask_full * (target[:, :, 2] == 1)
+  target_max = np.argmax(target, axis=2)
+  output_max = np.argmax(output, axis=2)
+
+  match = target_max == output_max
+  accuracy = np.sum(match * mask_test) / np.sum(mask_test)
+  acc_non_match = np.sum(match * np.squeeze(mask_non_match)) / np.sum(mask_non_match)
+  acc_match = np.sum(match * np.squeeze(mask_match)) / np.sum(mask_match)
+  return accuracy, acc_non_match, acc_match
+
+# %% [markdown]
 # ## Training
 
 
 # %%
-def trial(task_name, save_fn=None):
+def trial(task_name, save_fn=None, num_iterations=2000, iter_between_outputs=5):
   task = Task(task_name, dt=dt, tau=time_constant, batch_size=batch_size)
   # trial_info = task.generate_trial(set_rule=None)
   # task.plot_neural_input(trial_info)
 
   model = Model(task)
   opt = bm.optimizers.Adam(learning_rate, train_vars=model.train_vars())
-  grad_f = bm.grad(model.loss_func, dyn_vars=model.vars(),
+  grad_f = bm.grad(model.loss_func, 
+                   dyn_vars=model.vars(),
                    grad_vars=model.train_vars(),
                    return_value=True)
 
@@ -229,10 +253,8 @@ def trial(task_name, save_fn=None):
     capped_gs = dict()
     for key, grad in grads.items():
       if 'w_rr' in key: grad *= model.w_rr_mask
-      elif 'w_ro' in key:
-        grad *= model.w_ro_mask
-      elif 'w_ri' in key:
-        grad *= model.w_ir_mask
+      elif 'w_ro' in key: grad *= model.w_ro_mask
+      elif 'w_ri' in key: grad *= model.w_ir_mask
       capped_gs[key] = bm.clip_by_norm(grad, clip_max_grad_val)
     opt.update(grads=capped_gs)
 
@@ -252,7 +274,7 @@ def trial(task_name, save_fn=None):
     train_op(inputs, targets, mask)
 
     # get metrics
-    accuracy, _, _ = analysis.get_perf(targets, model.y_hist, mask)
+    accuracy, _, _ = get_perf(targets, model.y_hist, mask)
     model_performance['accuracy'].append(accuracy)
     model_performance['loss'].append(model.loss)
     model_performance['perf_loss'].append(model.perf_loss)

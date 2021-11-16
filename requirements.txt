@@ -2,6 +2,6 @@ pandoc
 docutils
 Jinja2
 sphinx
-sphinx_rtd_theme
 nbsphinx
-brain-py
+brain-py>=1.1.0
+sphinx_rtd_theme>=1.0.0
