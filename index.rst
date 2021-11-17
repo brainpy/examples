@@ -70,9 +70,10 @@ to implement various neuron models or network models.
    recurrent_networks/Sussillo_Abbott_2009_FORCE_Learning.ipynb
    recurrent_networks/Laje_Buonomano_2013_robust_timing_rnn.ipynb
    recurrent_networks/integrator_rnn.ipynb
+   recurrent_networks/ParametricWorkingMemory.ipynb
    recurrent_networks/Song_2016_EI_RNN.ipynb
    recurrent_networks/Masse_2019_STP_RNN.ipynb
-   recurrent_networks/ParametricWorkingMemory.ipynb
+   recurrent_networks/Yang_2020_RNN_Analysis.ipynb
 
 
 
@@ -83,6 +84,16 @@ to implement various neuron models or network models.
    working_memory/Mi_2017_working_memory_capacity.ipynb
    working_memory/Bouchacourt_2019_Flexible_working_memory.ipynb
    ../recurrent_networks/Masse_2019_STP_RNN.ipynb
+
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Dynamics Analysis
+
+   low_dim_analysis/1D_system_birfurcation.ipynb
+   low_dim_analysis/FitzHugh_Nagumo_analysis.ipynb
+   low_dim_analysis/bursting_analysis.ipynb
 
 
 
