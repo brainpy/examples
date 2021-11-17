@@ -14,7 +14,14 @@
 # ---
 
 # %% [markdown]
-# # Train RNN to Solve Parametric Working Memory
+# # *(Yang, 2020)*: Dynamical system analysis for RNN
+
+# %% [markdown]
+# Implementation of the paper:
+#
+# - Yang G R, Wang X J. Artificial neural networks for neuroscientists: A primer[J]. Neuron, 2020, 107(6): 1048-1070.
+#
+# The original implementation is based on PyTorch: https://github.com/gyyang/nn-brain/blob/master/RNN%2BDynamicalSystemAnalysis.ipynb
 
 # %%
 import brainpy as bp
@@ -23,11 +30,19 @@ bp.set_platform('cpu')
 bp.math.use_backend('jax')
 import brainpy.math.jax as bm
 import brainpy.simulation.layers as layers
+from brainpy.analysis.numeric import FixedPointFinder
 
 # %%
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
+
+
+# %% [markdown]
+# In this tutorial, we will use supervised learning to train a recurrent neural network on a simple perceptual decision making task, and analyze the trained network using dynamical system analysis.
+
+# %% [markdown]
+# ## Defining a cognitive task
 
 # %%
 # We will import the task from the neurogym library.
@@ -39,29 +54,38 @@ import neurogym as ngym
 
 # %%
 # Environment
-task = 'DelayComparison-v0'
-timing = {'delay': ('choice', [200, 400, 800, 1600, 3200]),
-          'response': ('constant', 500)}
-kwargs = {'dt': 100, 'timing': timing}
+task = 'PerceptualDecisionMaking-v0'
+kwargs = {'dt': 100}
 seq_len = 100
 
 # Make supervised dataset
-dataset = ngym.Dataset(task,
-                       env_kwargs=kwargs,
-                       batch_size=16,
+dataset = ngym.Dataset(task, env_kwargs=kwargs, batch_size=16,
                        seq_len=seq_len)
 
 # A sample environment from dataset
 env = dataset.env
 # Visualize the environment with 2 sample trials
-_ = ngym.utils.plot_env(env, num_trials=2, def_act=0, fig_kwargs={'figsize': (8, 6)})
-plt.show()
+_ = ngym.utils.plot_env(env, num_trials=2, fig_kwargs={'figsize': (8, 6)})
 
 # %%
 input_size = env.observation_space.shape[0]
 output_size = env.action_space.n
 batch_size = dataset.batch_size
 
+
+# %% [markdown]
+# ## Define a vanilla continuous-time recurrent network
+
+# %% [markdown]
+# Here we will define a continuous-time neural network but discretize it in time using the Euler method.
+# \begin{align}
+#     \tau \frac{d\mathbf{r}}{dt} = -\mathbf{r}(t) + f(W_r \mathbf{r}(t) + W_x \mathbf{x}(t) + \mathbf{b}_r).
+# \end{align}
+#
+# This continuous-time system can then be discretized using the Euler method with a time step of $\Delta t$, 
+# \begin{align}
+#     \mathbf{r}(t+\Delta t) = \mathbf{r}(t) + \Delta \mathbf{r} = \mathbf{r}(t) + \frac{\Delta t}{\tau}[-\mathbf{r}(t) + f(W_r \mathbf{r}(t) + W_x \mathbf{x}(t) + \mathbf{b}_r)].
+# \end{align}
 
 # %%
 class RNN(layers.Module):
@@ -128,6 +152,9 @@ class RNN(layers.Module):
     return loss, os
 
 
+# %% [markdown]
+# ## Train the recurrent network on the decision-making task
+
 # %%
 # Instantiate the network and print information
 hidden_size = 64
@@ -138,13 +165,12 @@ net = RNN(num_input=input_size,
           dt=env.dt)
 
 # %%
+# prediction method
 predict = bm.jit(net.predict, dyn_vars=net.vars())
 
-# %%
 # Adam optimizer
 opt = bm.optimizers.Adam(lr=0.001, train_vars=net.train_vars().unique())
 
-# %%
 # gradient function
 grad_f = bm.grad(net.loss,
                  dyn_vars=net.vars(),
@@ -152,8 +178,7 @@ grad_f = bm.grad(net.loss,
                  return_value=True,
                  has_aux=True)
 
-
-# %%
+# training function
 @bm.jit
 @bm.function(nodes=(net, opt))
 def train(xs, ys):
@@ -165,7 +190,7 @@ def train(xs, ys):
 # %%
 running_acc = 0
 running_loss = 0
-for i in range(2000):
+for i in range(1500):
   inputs, labels_np = dataset()
   inputs = bm.asarray(inputs)
   labels = bm.asarray(labels_np)
@@ -183,14 +208,18 @@ for i in range(2000):
     running_loss = 0
     running_acc = 0
 
+# %% [markdown]
+# ## Visualize neural activity for in sample trials
+#
+# We will run the network for 100 sample trials, then visual the neural activity trajectories in a PCA space.
 
 # %%
-def run(num_trial=1):
-  env.reset(no_step=True)
-  perf = 0
-  activity_dict = {}
-  trial_infos = {}
-  for i in range(num_trial):
+env.reset(no_step=True)
+perf = 0
+num_trial = 100
+activity_dict = {}
+trial_infos = {}
+for i in range(num_trial):
     env.new_trial()
     ob, gt = env.ob, env.gt
     inputs = bm.asarray(ob[:, np.newaxis, :])
@@ -198,38 +227,110 @@ def run(num_trial=1):
     rnn_activity = rnn_activity.numpy()[:, 0, :]
     activity_dict[i] = rnn_activity
     trial_infos[i] = env.trial
+    
+# Concatenate activity for PCA
+activity = np.concatenate(list(activity_dict[i] for i in range(num_trial)), axis=0)
+print('Shape of the neural activity: (Time points, Neurons): ', activity.shape)
 
-  # Concatenate activity for PCA
-  activity = np.concatenate(list(activity_dict[i] for i in range(num_trial)), axis=0)
-  print('Shape of the neural activity: (Time points, Neurons): ', activity.shape)
-
-  # Print trial informations
-  for i in range(5):
-    if i >= num_trial: break
+# Print trial informations
+for i in range(5):
     print('Trial ', i, trial_infos[i])
 
-  pca = PCA(n_components=2)
-  pca.fit(activity)
-  # print('Shape of the projected activity: (Time points, PCs): ', activity_pc.shape)
+# %%
+pca = PCA(n_components=2)
+pca.fit(activity)
 
-  fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, sharex=True, figsize=(6, 3))
-  for i in range(num_trial):
+# %% [markdown]
+# Transform individual trials and Visualize in PC space based on ground-truth color. We see that the neural activity is organized by stimulus ground-truth in PC1
+
+# %%
+plt.rcdefaults()
+fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, sharex=True, figsize=(12, 5))
+for i in range(num_trial):
     activity_pc = pca.transform(activity_dict[i])
     trial = trial_infos[i]
     color = 'red' if trial['ground_truth'] == 0 else 'blue'
     _ = ax1.plot(activity_pc[:, 0], activity_pc[:, 1], 'o-', color=color)
-    if i < 3:
-      _ = ax2.plot(activity_pc[:, 0], activity_pc[:, 1], 'o-', color=color)
-  ax1.set_xlabel('PC 1')
-  ax1.set_ylabel('PC 2')
-  plt.show()
+    if i < 5:
+        _ = ax2.plot(activity_pc[:, 0], activity_pc[:, 1], 'o-', color=color)
 
+ax1.set_xlabel('PC 1')
+ax1.set_ylabel('PC 2')
+plt.show()
+
+# %% [markdown]
+# ## Search for approximate fixed points
+
+# %% [markdown]
+# Here we search for approximate fixed points and visualize them in the same PC space. In a generic dynamical system,
+# \begin{align}
+#     \frac{d\mathbf{x}}{dt} = F(\mathbf{x}),
+# \end{align}
+# We can search for fixed points by doing the optimization
+# \begin{align}
+#     \mathrm{argmin}_{\mathbf{x}} |F(\mathbf{x})|^2.
+# \end{align}
 
 # %%
-run(num_trial=1)
+f_cell = lambda h: net.cell(bm.asarray([1, 0.5, 0.5]), h)
 
 # %%
-run(num_trial=20)
+fp_candidates = bm.vstack([activity_dict[i] for i in range(num_trial)])
+fp_candidates.shape
 
 # %%
-run(num_trial=100)
+finder = FixedPointFinder(
+  f_cell=f_cell,
+  f_type='F',
+  tol_opt=1e-5,
+  tol_speed=1e-5,
+  tol_unique=0.03,
+  tol_outlier=0.1,
+  opt_setting=dict(method=bm.optimizers.Adam,
+                   lr=bm.optimizers.ExponentialDecay(0.01, 1, 0.9999)),
+  num_opt_batch=200, 
+)
+fixed_points, _, _, _ = finder.find_fixed_points(candidates=fp_candidates)
+
+# %% [markdown]
+# ## Visualize the found approximate fixed points.
+#
+# We see that they found an approximate line attrator, corresponding to our PC1, along which evidence is integrated during the stimulus period.
+
+# %%
+# Plot in the same space as activity
+plt.figure(figsize=(10, 5))
+for i in range(10):
+    activity_pc = pca.transform(activity_dict[i])
+    trial = trial_infos[i]
+    color = 'red' if trial['ground_truth'] == 0 else 'blue'
+    plt.plot(activity_pc[:, 0], activity_pc[:, 1], 'o-', color=color, alpha=0.1)
+
+# Fixed points are shown in cross
+fixedpoints_pc = pca.transform(fixed_points)
+plt.plot(fixedpoints_pc[:, 0], fixedpoints_pc[:, 1], 'x', label='fixed points')
+
+plt.xlabel('PC 1')
+plt.ylabel('PC 2')
+plt.legend()
+plt.show()
+
+# %% [markdown]
+# ## Computing the Jacobian and finding the line attractor
+
+# %%
+from jax import jacobian
+
+# %%
+dFdh = jacobian(f_cell)(fixed_points[10])
+
+eigval, eigvec = np.linalg.eig(dFdh.numpy())
+
+# %%
+# Plot distribution of eigenvalues in a 2-d real-imaginary plot
+plt.figure()
+plt.scatter(np.real(eigval), np.imag(eigval))
+plt.plot([1, 1], [-1, 1], '--')
+plt.xlabel('Real')
+plt.ylabel('Imaginary')
+plt.show()

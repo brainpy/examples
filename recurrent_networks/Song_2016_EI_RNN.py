@@ -21,7 +21,7 @@
 #
 # - Song, H. F. ,  G. R. Yang , and  X. J. Wang . "Training Excitatory-Inhibitory Recurrent Neural Networks for Cognitive Tasks: A Simple and Flexible Framework." Plos Computational Biology 12.2(2016):e1004792.
 #
-# The original code is based on PyTorch (https://github.com/gyyang/nn-brain/blob/master/EI_RNN.ipynb). However, comparing with the PyTorch codes, the training on BrainPy speeds up nearly five folds. 
+# The original code is based on PyTorch (https://github.com/gyyang/nn-brain/blob/master/EI_RNN.ipynb). However, comparing with the PyTorch codes, the training on BrainPy speeds up nearly four folds. 
 
 # %% [markdown]
 # Here we will train recurrent neural network with excitatory and inhibitory neurons on a simple perceptual decision making task.
