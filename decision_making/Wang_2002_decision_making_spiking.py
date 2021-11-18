@@ -71,7 +71,7 @@ class LIF(bp.NeuGroup):
     self.spike = bm.Variable(bm.zeros(self.num, dtype=bool))
     self.refractory = bm.Variable(bm.zeros(self.num, dtype=bool))
     self.t_last_spike = bm.Variable(bm.ones(self.num) * -1e7)
-    
+
     self.integral = bp.odeint(self.derivative)
 
   def derivative(self, V, t, Iext):
@@ -83,10 +83,10 @@ class LIF(bp.NeuGroup):
     V = self.integral(self.V, _t, self.input)
     V = bm.where(ref, self.V, V)
     spike = (V >= self.V_th)
-    self.V[:] = bm.where(spike, self.V_reset, V)
-    self.spike[:] = spike
-    self.t_last_spike[:] = bm.where(spike, _t, self.t_last_spike)
-    self.refractory[:] = bm.logical_or(spike, ref)
+    self.V.value = bm.where(spike, self.V_reset, V)
+    self.spike.value = spike
+    self.t_last_spike.value = bm.where(spike, _t, self.t_last_spike)
+    self.refractory.value = bm.logical_or(spike, ref)
     self.input[:] = 0.
 
 
@@ -105,7 +105,31 @@ class PoissonNoise(bp.NeuGroup):
     self.rng = bm.random.RandomState()
 
   def update(self, _t, _dt):
-    self.spike[:] = self.rng.random(self.num) < self.freq[0] * self.dt
+    self.spike.value = self.rng.random(self.num) < self.freq[0] * self.dt
+
+
+# %%
+class PoissonStim(bp.NeuGroup):
+  def __init__(self, size, freq_mean, freq_var, t_interval, **kwargs):
+    super(PoissonStim, self).__init__(size=size, **kwargs)
+
+    self.freq_mean = freq_mean
+    self.freq_var = freq_var
+    self.t_interval = t_interval
+    self.dt = bm.get_dt() / 1000.
+
+    self.freq = bm.Variable(bm.zeros(1))
+    self.freq_t_last_change = bm.Variable(bm.ones(1) * -1e7)
+    self.spike = bm.Variable(bm.zeros(self.num, dtype=bool))
+    self.rng = bm.random.RandomState()
+
+  def update(self, _t, _dt):
+    in_interval = bm.logical_and(pre_period < _t, _t < pre_period + stim_period)
+    prev_freq = bm.where(in_interval, self.freq[0], 0.)
+    in_interval = bm.logical_and(in_interval, (_t - self.freq_t_last_change[0]) >= self.t_interval)
+    self.freq[:] = bm.where(in_interval, self.rng.normal(self.freq_mean, self.freq_var), prev_freq)
+    self.freq_t_last_change[:] = bm.where(in_interval, _t, self.freq_t_last_change[0])
+    self.spike.value = self.rng.random(self.num) < self.freq[0] * self.dt
 
 
 # %% [markdown]
@@ -166,7 +190,7 @@ class AMPA_One(bp.TwoEndConn):
     # variables
     self.pre_spike = self.register_constant_delay('ps', size=self.pre.num, delay=delay)
     self.s = bm.Variable(bm.zeros(self.pre.num))
-    
+
     # function
     self.integral = bp.odeint(self.derivative)
 
@@ -177,7 +201,7 @@ class AMPA_One(bp.TwoEndConn):
   def update(self, _t, _dt):
     self.pre_spike.push(self.pre.spike)
     pre_spike = self.pre_spike.pull()
-    self.s[:] = self.integral(self.s, _t)
+    self.s.value = self.integral(self.s, _t)
     self.s += pre_spike * self.g_max
     self.post.input += self.s * (self.post.V - self.E)
 
@@ -196,9 +220,9 @@ class AMPA(bp.TwoEndConn):
 
     # variables
     self.pre_spike = self.register_constant_delay('ps', size=self.pre.num, delay=delay)
-    self.pre_one = bm.Variable(bm.ones(self.pre.num))
+    self.pre_one = bm.ones(self.pre.num)
     self.s = bm.Variable(bm.zeros(self.size))
-    
+
     # function
     self.integral = bp.odeint(self.derivative)
 
@@ -209,7 +233,7 @@ class AMPA(bp.TwoEndConn):
   def update(self, _t, _dt):
     self.pre_spike.push(self.pre.spike)
     pre_spike = self.pre_spike.pull()
-    self.s[:] = self.integral(self.s, _t)
+    self.s.value = self.integral(self.s, _t)
     self.s += (pre_spike * self.g_max).reshape((-1, 1))
     self.post.input += bm.dot(self.pre_one, self.s) * (self.post.V - self.E)
 
@@ -248,13 +272,13 @@ class NMDA(bp.TwoEndConn):
     self.tau_rise = tau_rise
     self.delay = delay
     self.size = (self.pre.num, self.post.num)
+    self.pre_one = bm.ones(self.pre.num)
 
     # variables
     self.pre_spike = self.register_constant_delay('ps', size=self.pre.num, delay=delay)
-    self.pre_one = bm.Variable(bm.ones(self.pre.num))
     self.s = bm.Variable(bm.zeros(self.size))
     self.x = bm.Variable(bm.zeros(self.size))
-    
+
     # function
     self.integral = bp.odeint(self.derivative)
 
@@ -266,7 +290,7 @@ class NMDA(bp.TwoEndConn):
   def update(self, _t, _dt):
     self.pre_spike.push(self.pre.spike)
     pre_spike = self.pre_spike.pull()
-    self.s[:], self.x[:] = self.integral(self.s, self.x, _t)
+    self.s.value, self.x.value = self.integral(self.s, self.x, _t)
     self.x += pre_spike.reshape((-1, 1))
     g_inf = 1 / (1 + self.cc_Mg * bm.exp(-0.062 * self.post.V) / 3.57)
     Iext = bm.dot(self.pre_one, self.s) * (self.post.V - self.E) * g_inf
@@ -341,17 +365,10 @@ N = LIF(num_N, Cm=0.5, gL=0.025, t_refractory=2.)
 I = LIF(num_inh, Cm=0.2, gL=0.020, t_refractory=1.)
 
 # %%
-IA = PoissonNoise(num_A, freq=mu0 + mu0 / 100. * coherence)
-IA.freq_mean = mu0 + mu0 / 100. * coherence
-IA.freq_var = 10.
-IA.t_interval = 50.
-IA.t_last_change = -1e7
-
-IB = PoissonNoise(num_B, freq=mu0 - mu0 / 100. * coherence)
-IB.freq_mean = mu0 - mu0 / 100. * coherence
-IB.freq_var = 10.
-IB.t_interval = 50.
-IB.t_last_change = -1e7
+IA = PoissonStim(num_A, freq_var=10., t_interval=50.,
+                 freq_mean=mu0 + mu0 / 100. * coherence)
+IB = PoissonStim(num_B, freq_var=10., t_interval=50.,
+                 freq_mean=mu0 - mu0 / 100. * coherence)
 
 # %%
 noise_A = PoissonNoise(num_A, freq=poisson_freq)
@@ -416,7 +433,6 @@ noise2N = AMPA_One(pre=noise_N, post=N, g_max=g_max_ext2E_AMPA)
 noise2I = AMPA_One(pre=noise_I, post=I, g_max=g_max_ext2I_AMPA)
 
 # %%
-# build & simulate network
 net = bp.Network(
   # Synaptic Connections
   noise2A, noise2B, noise2N, noise2I, IA2A, IB2B,
@@ -429,22 +445,14 @@ net = bp.Network(
   A=A, B=B, IA=IA, IB=IB,
   monitors=['A.spike', 'B.spike', 'IA.freq', 'IB.freq']
 )
-net = bm.jit(net)
-
 
 # %%
-def change_poisson_freq(_t, _dt):
-  for group in [IA, IB]:
-    if pre_period < _t < pre_period + stim_period:
-      if (_t - group.t_last_change) >= group.t_interval:
-        group.freq[0] = bm.random.normal(group.freq_mean, group.freq_var)
-        group.t_last_change = _t
-    else:
-      group.freq[0] = 0.
+# build & simulate network
 
+net.build()
 
-# %%
-net.run(duration=total_period, report=0.1, extra_func=change_poisson_freq)
+ts = net.struct_run(total_period)
+print(f'Used time: {ts} s')
 
 # %% [markdown]
 # ## Visualization

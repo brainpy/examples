@@ -91,7 +91,7 @@ to implement various neuron models or network models.
    :maxdepth: 1
    :caption: Dynamics Analysis
 
-   low_dim_analysis/1D_system_birfurcation.ipynb
+   low_dim_analysis/1D_system_bifurcation.ipynb
    low_dim_analysis/FitzHugh_Nagumo_analysis.ipynb
    low_dim_analysis/bursting_analysis.ipynb
 

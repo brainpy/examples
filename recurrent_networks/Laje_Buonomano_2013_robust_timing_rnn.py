@@ -14,7 +14,7 @@
 # ---
 
 # %% [markdown]
-# # *(Laje & Buonomano)* Robust Timing in RNN
+# # *(Laje & Buonomano, 2013)* Robust Timing in RNN
 
 # %% [markdown]
 # Implementation of the paper:
