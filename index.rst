@@ -62,6 +62,10 @@ to implement various neuron models or network models.
    oscillation_synchronization/Diesmann_1999_synfire_chains.ipynb
 
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Large-Scale Simulation
+
 
 .. toctree::
    :maxdepth: 1

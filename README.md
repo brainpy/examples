@@ -4,6 +4,7 @@ Examples of BrainPy (>=1.1.0)
 
 ## Changelogs
 
+- 2021/11/20: decrease [decision-making model](decision_making/Wang_2002_decision_making_spiking.ipynb) running time from 220+ s to 80+ s
 - 2021/11/17: add [FitzHugh Nagumo analysis](low_dim_analysis/FitzHugh_Nagumo_analysis.ipynb)
 - 2021/11/17: add [bursting analysis](low_dim_analysis/bursting_analysis.ipynb)
 - 2021/11/17: add [1D system bifurcation](low_dim_analysis/1D_system_bifurcation.ipynb)

@@ -207,6 +207,7 @@ class AMPA_One(bp.TwoEndConn):
 
 
 # %%
+
 class AMPA(bp.TwoEndConn):
   def __init__(self, pre, post, delay=0.5, g_max=0.10, E=0., tau=2.0, **kwargs):
     super(AMPA, self).__init__(pre=pre, post=post, **kwargs)
@@ -216,12 +217,10 @@ class AMPA(bp.TwoEndConn):
     self.E = E
     self.tau = tau
     self.delay = delay
-    self.size = (self.pre.num, self.post.num)
 
     # variables
+    self.s = bm.Variable(bm.zeros(self.post.num))
     self.pre_spike = self.register_constant_delay('ps', size=self.pre.num, delay=delay)
-    self.pre_one = bm.ones(self.pre.num)
-    self.s = bm.Variable(bm.zeros(self.size))
 
     # function
     self.integral = bp.odeint(self.derivative)
@@ -234,8 +233,8 @@ class AMPA(bp.TwoEndConn):
     self.pre_spike.push(self.pre.spike)
     pre_spike = self.pre_spike.pull()
     self.s.value = self.integral(self.s, _t)
-    self.s += (pre_spike * self.g_max).reshape((-1, 1))
-    self.post.input += bm.dot(self.pre_one, self.s) * (self.post.V - self.E)
+    self.s += pre_spike.sum() * self.g_max
+    self.post.input += self.s * (self.post.V - self.E)
 
 
 # %% [markdown]
