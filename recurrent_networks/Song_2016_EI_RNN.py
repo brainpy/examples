@@ -28,11 +28,8 @@
 
 # %%
 import brainpy as bp
-bp.set_platform('cpu')
-
-bp.math.use_backend('jax')
-from brainpy.math import jax as bm
-from brainpy.simulation import layers
+import brainpy.math as bm
+bp.math.set_platform('cpu')
 
 # %%
 import numpy as np
@@ -88,7 +85,7 @@ print(f'Bacth size = {batch_size}')
 # Here we define a E-I recurrent network, in particular, no self-connections are allowed.
 
 # %%
-class RNN(layers.Module):
+class RNN(bp.layers.Module):
   r"""E-I RNN.
 
   The RNNs are described by the equations

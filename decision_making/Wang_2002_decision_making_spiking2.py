@@ -25,7 +25,6 @@
 # %%
 import brainpy as bp
 import brainpy.math as bm
-
 bm.set_platform('cpu')
 import matplotlib.pyplot as plt
 
@@ -72,15 +71,28 @@ class LIF(bp.NeuGroup):
     self.refractory = bm.Variable(bm.zeros(self.num, dtype=bool))
     self.t_last_spike = bm.Variable(bm.ones(self.num) * -1e7)
 
+    self.ampa_E = 0.
+    self.ampa_tau = 2.
+    self.ampa = bm.Variable(bm.zeros(self.num))
+
+    self.gaba_E = -70.
+    self.gaba_tau = 5.
+    self.gaba = bm.Variable(bm.zeros(self.num))
+
     self.integral = bp.odeint(self.derivative)
 
-  def derivative(self, V, t, Iext):
+  def derivative(self, V, ampa, gaba, t, Iext):
     dVdt = (- self.gL * (V - self.V_L) - Iext) / self.Cm
-    return dVdt
+    dampa = - ampa / self.ampa_tau
+    dgaba = - gaba / self.gaba_tau
+    return dVdt, dampa, dgaba
 
   def update(self, _t, _dt):
+    inputs = self.input + self.ampa * (self.V - self.ampa_E) + self.gaba * (self.V - self.gaba_E)
+    V, ampa, gaba = self.integral(self.V, self.ampa, self.gaba, _t, inputs, dt=_dt)
+    self.ampa.value = ampa
+    self.gaba.value = gaba
     ref = (_t - self.t_last_spike) <= self.t_refractory
-    V = self.integral(self.V, _t, self.input)
     V = bm.where(ref, self.V, V)
     spike = (V >= self.V_th)
     self.V.value = bm.where(spike, self.V_reset, V)
@@ -124,7 +136,7 @@ class PoissonStim(bp.NeuGroup):
     self.rng = bm.random.RandomState()
 
   def update(self, _t, _dt):
-    in_interval = bm.logical_and(pre_stimulus_period < _t, _t < pre_stimulus_period + stimulus_period)
+    in_interval = bm.logical_and(pre_period < _t, _t < pre_period + stim_period)
     prev_freq = bm.where(in_interval, self.freq[0], 0.)
     in_interval = bm.logical_and(in_interval, (_t - self.freq_t_last_change[0]) >= self.t_interval)
     self.freq[:] = bm.where(in_interval, self.rng.normal(self.freq_mean, self.freq_var), prev_freq)
@@ -179,32 +191,20 @@ class PoissonStim(bp.NeuGroup):
 
 # %%
 class AMPA(bp.TwoEndConn):
-  def __init__(self, pre, post, delay=0.5, g_max=0.10, E=0., tau=2.0, **kwargs):
+  def __init__(self, pre, post, delay=0.5, g_max=0.10, **kwargs):
     super(AMPA, self).__init__(pre=pre, post=post, **kwargs)
 
     # parameters
     self.g_max = g_max
-    self.E = E
-    self.tau = tau
     self.delay = delay
 
     # variables
-    self.s = bm.Variable(bm.zeros(self.post.num))
     self.pre_spike = self.register_constant_delay('ps', size=self.pre.num, delay=delay)
-
-    # function
-    self.integral = bp.odeint(self.derivative)
-
-  def derivative(self, s, t):
-    ds = - s / self.tau
-    return ds
 
   def update(self, _t, _dt):
     self.pre_spike.push(self.pre.spike)
     pre_spike = self.pre_spike.pull()
-    self.s.value = self.integral(self.s, _t)
-    self.s += pre_spike.sum() * self.g_max
-    self.post.input += self.s * (self.post.V - self.E)
+    self.post.ampa += pre_spike.sum() * self.g_max
 
 
 # %%
@@ -212,10 +212,7 @@ class AMPA_One(AMPA):
   def update(self, _t, _dt):
     self.pre_spike.push(self.pre.spike)
     pre_spike = self.pre_spike.pull()
-    self.s.value = self.integral(self.s, _t)
-    self.s += pre_spike * self.g_max
-    self.post.input += self.s * (self.post.V - self.E)
-
+    self.post.ampa += pre_spike * self.g_max
 
 # %% [markdown]
 # ### NMDA
@@ -269,7 +266,7 @@ class NMDA(bp.TwoEndConn):
   def update(self, _t, _dt):
     self.pre_spike.push(self.pre.spike)
     pre_spike = self.pre_spike.pull()
-    self.s.value, self.x.value = self.integral(self.s, self.x, _t)
+    self.s.value, self.x.value = self.integral(self.s, self.x, _t, dt=_dt)
     self.x += pre_spike.reshape((-1, 1))
     g_inf = 1 / (1 + self.cc_Mg * bm.exp(-0.062 * self.post.V) / 3.57)
     Iext = bm.dot(self.pre_one, self.s) * (self.post.V - self.E) * g_inf
@@ -290,15 +287,17 @@ class NMDA(bp.TwoEndConn):
 
 # %%
 class GABAa(AMPA):
-  def __init__(self, pre, post, delay=0.5, g_max=0.10, E=-70., tau=5.0, **kwargs):
-    super(GABAa, self).__init__(pre=pre, post=post, E=E, tau=tau, delay=delay, g_max=g_max, **kwargs)
+  def __init__(self, pre, post, delay=0.5, g_max=0.10, **kwargs):
+    super(GABAa, self).__init__(pre=pre, post=post, delay=delay, g_max=g_max, **kwargs)
 
+  def update(self, _t, _dt):
+    self.pre_spike.push(self.pre.spike)
+    pre_spike = self.pre_spike.pull()
+    self.post.gaba += pre_spike.sum() * self.g_max
 
-# %% [markdown]
-# ## Network model
 
 # %%
-class DecisionMaking(bp.Network):
+class DecisionMaking(bp.DynamicalSystem):
   def __init__(self, scale=1., mu0=40., coherence=25.6, **kwargs):
     super(DecisionMaking, self).__init__(**kwargs)
 
@@ -310,6 +309,7 @@ class DecisionMaking(bp.Network):
     num_N = num_exc - num_A - num_B
     print(f'Total network size: {num_exc + num_inh}')
 
+    # %%
     poisson_freq = 2400.  # Hz
     w_pos = 1.7
     w_neg = 1. - f * (w_pos - 1.) / (1. - f)
@@ -322,6 +322,10 @@ class DecisionMaking(bp.Network):
     g_max_I2E_GABAa = 1.3 * 1e-3 / scale  # uS
     g_max_I2I_GABAa = 1.0 * 1e-3 / scale  # uS
 
+    # %% [markdown]
+    # ## Build the network
+
+    # %%
     # E neurons/pyramid neurons
     A = LIF(num_A, Cm=0.5, gL=0.025, t_refractory=2.)
     B = LIF(num_B, Cm=0.5, gL=0.025, t_refractory=2.)
@@ -329,6 +333,7 @@ class DecisionMaking(bp.Network):
     # I neurons/interneurons
     I = LIF(num_inh, Cm=0.2, gL=0.020, t_refractory=1.)
 
+    # %%
     IA = PoissonStim(num_A, freq_var=10., t_interval=50.,
                      freq_mean=mu0 + mu0 / 100. * coherence)
     IB = PoissonStim(num_B, freq_var=10., t_interval=50.,
@@ -340,16 +345,19 @@ class DecisionMaking(bp.Network):
     self.I = I
     self.IA = IA
     self.IB = IB
+
+    # %%
     self.noise_A = PoissonNoise(num_A, freq=poisson_freq)
     self.noise_B = PoissonNoise(num_B, freq=poisson_freq)
     self.noise_N = PoissonNoise(num_N, freq=poisson_freq)
     self.noise_I = PoissonNoise(num_inh, freq=poisson_freq)
 
-    # define external inputs
+    # %%
     self.IA2A = AMPA_One(pre=IA, post=A, g_max=g_max_ext2E_AMPA)
     self.IB2B = AMPA_One(pre=IB, post=B, g_max=g_max_ext2E_AMPA)
 
-    # define E2E conn
+    # %%
+    ## define E2E conn
     self.A2A_AMPA = AMPA(pre=A, post=A, g_max=g_max_E2E_AMPA * w_pos)
     self.A2A_NMDA = NMDA(pre=A, post=A, g_max=g_max_E2E_NMDA * w_pos)
 
@@ -377,7 +385,7 @@ class DecisionMaking(bp.Network):
     self.N2N_AMPA = AMPA(pre=N, post=N, g_max=g_max_E2E_AMPA)
     self.N2N_NMDA = NMDA(pre=N, post=N, g_max=g_max_E2E_NMDA)
 
-    # define E2I conn
+    ## define E2I conn
     self.A2I_AMPA = AMPA(pre=A, post=I, g_max=g_max_E2I_AMPA)
     self.A2I_NMDA = NMDA(pre=A, post=I, g_max=g_max_E2I_NMDA)
 
@@ -391,28 +399,40 @@ class DecisionMaking(bp.Network):
     self.I2B_GABAa = GABAa(pre=I, post=B, g_max=g_max_I2E_GABAa)
     self.I2N_GABAa = GABAa(pre=I, post=N, g_max=g_max_I2E_GABAa)
 
-    # define I2I conn
+    ## define I2I conn
     self.I2I_GABAa = GABAa(pre=I, post=I, g_max=g_max_I2I_GABAa)
 
-    # define external projections
+    ## define external projections
     self.noise2A = AMPA_One(pre=self.noise_A, post=A, g_max=g_max_ext2E_AMPA)
     self.noise2B = AMPA_One(pre=self.noise_B, post=B, g_max=g_max_ext2E_AMPA)
     self.noise2N = AMPA_One(pre=self.noise_N, post=N, g_max=g_max_ext2E_AMPA)
     self.noise2I = AMPA_One(pre=self.noise_I, post=I, g_max=g_max_ext2I_AMPA)
+
+  def child_ds(self, method='absolute', include_self=False):
+    nodes = self.nodes(method=method).subset(bp.DynamicalSystem).unique()
+    if not include_self:
+      nodes.pop(self.name)
+    return nodes
+
+  def update(self, _t, _dt):
+    for node in self.child_ds().values():
+      node.update(_t, _dt)
 
 
 # %%
 net = DecisionMaking(scale=1.)
 
 # %%
+# build & simulate network
+# times
 runner = bp.StructRunner(net, monitors=['A.spike', 'B.spike', 'IA.freq', 'IB.freq'],
                          dyn_vars=net.vars(), jit=True)
-pre_stimulus_period = 100.
-stimulus_period = 1000.
+pre_period = 100.
+stim_period = 1000.
 delay_period = 500.
-total_period = pre_stimulus_period + stimulus_period + delay_period
-t = runner(total_period)
-print(f'Used time: {t} s')
+total_period = pre_period + stim_period + delay_period
+ts = runner(total_period)
+print(f'Used time: {ts} s')
 
 # %% [markdown]
 # ## Visualization
@@ -420,25 +440,24 @@ print(f'Used time: {t} s')
 # %%
 fig, gs = bp.visualize.get_figure(4, 1, 3, 10)
 
-runner.mon.numpy()
 t_start = 0.
 fig.add_subplot(gs[0, 0])
 bp.visualize.raster_plot(runner.mon.ts, runner.mon['A.spike'], markersize=1)
 plt.title("Spiking activity of group A")
 plt.ylabel("Neuron Index")
 plt.xlim(t_start, total_period + 1)
-plt.axvline(pre_stimulus_period, linestyle='dashed')
-plt.axvline(pre_stimulus_period + stimulus_period, linestyle='dashed')
-plt.axvline(pre_stimulus_period + stimulus_period + delay_period, linestyle='dashed')
+plt.axvline(pre_period, linestyle='dashed')
+plt.axvline(pre_period + stim_period, linestyle='dashed')
+plt.axvline(pre_period + stim_period + delay_period, linestyle='dashed')
 
 fig.add_subplot(gs[1, 0])
 bp.visualize.raster_plot(runner.mon.ts, runner.mon['B.spike'], markersize=1)
 plt.title("Spiking activity of group B")
 plt.ylabel("Neuron Index")
 plt.xlim(t_start, total_period + 1)
-plt.axvline(pre_stimulus_period, linestyle='dashed')
-plt.axvline(pre_stimulus_period + stimulus_period, linestyle='dashed')
-plt.axvline(pre_stimulus_period + stimulus_period + delay_period, linestyle='dashed')
+plt.axvline(pre_period, linestyle='dashed')
+plt.axvline(pre_period + stim_period, linestyle='dashed')
+plt.axvline(pre_period + stim_period + delay_period, linestyle='dashed')
 
 fig.add_subplot(gs[2, 0])
 rateA = bp.measure.firing_rate(runner.mon['A.spike'], width=10.)
@@ -448,9 +467,9 @@ plt.plot(runner.mon.ts, rateB, label="Group B")
 plt.ylabel('Firing rate [Hz]')
 plt.title("Population activity")
 plt.xlim(t_start, total_period + 1)
-plt.axvline(pre_stimulus_period, linestyle='dashed')
-plt.axvline(pre_stimulus_period + stimulus_period, linestyle='dashed')
-plt.axvline(pre_stimulus_period + stimulus_period + delay_period, linestyle='dashed')
+plt.axvline(pre_period, linestyle='dashed')
+plt.axvline(pre_period + stim_period, linestyle='dashed')
+plt.axvline(pre_period + stim_period + delay_period, linestyle='dashed')
 plt.legend()
 
 fig.add_subplot(gs[3, 0])
@@ -459,9 +478,9 @@ plt.plot(runner.mon.ts, runner.mon['IB.freq'], label="group B")
 plt.title("Input activity")
 plt.ylabel("Firing rate [Hz]")
 plt.xlim(t_start, total_period + 1)
-plt.axvline(pre_stimulus_period, linestyle='dashed')
-plt.axvline(pre_stimulus_period + stimulus_period, linestyle='dashed')
-plt.axvline(pre_stimulus_period + stimulus_period + delay_period, linestyle='dashed')
+plt.axvline(pre_period, linestyle='dashed')
+plt.axvline(pre_period + stim_period, linestyle='dashed')
+plt.axvline(pre_period + stim_period + delay_period, linestyle='dashed')
 plt.legend()
 
 plt.xlabel("Time [ms]")

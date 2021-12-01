@@ -10,9 +10,8 @@ from functools import partial
 
 # %%
 import brainpy as bp
-import brainpy.math.jax as bm
-
-bp.math.use_backend('jax')
+import brainpy.math as bm
+bm.set_platform('cpu')
 
 # %%
 import numpy as np

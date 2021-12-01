@@ -17,9 +17,8 @@
 
 # %%
 import brainpy as bp
-bp.set_platform('cpu')
-import brainpy.math.jax as bm
-bp.math.use_backend('jax')
+import brainpy.math as bm
+bp.math.set_platform('cpu')
 
 # %%
 import os
@@ -59,7 +58,7 @@ def initialize(shape, prob, size):
 # ## Model
 
 # %%
-class Model(bp.DynamicalSystem):
+class Model(bp.layers.Module):
   def __init__(self, task, num_hidden=100, name=None):
     super(Model, self).__init__(name=name)
 

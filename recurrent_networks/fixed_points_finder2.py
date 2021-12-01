@@ -13,10 +13,8 @@
 
 # %%
 import brainpy as bp
-import brainpy.math.jax as bm
-
-bp.math.use_backend('jax')
-bp.__version__
+import brainpy.math as bm
+bm.set_platform('cpu')
 
 # %%
 import time

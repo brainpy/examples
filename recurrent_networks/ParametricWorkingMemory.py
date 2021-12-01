@@ -18,11 +18,8 @@
 
 # %%
 import brainpy as bp
-
-bp.set_platform('cpu')
-bp.math.use_backend('jax')
-import brainpy.math.jax as bm
-import brainpy.simulation.layers as layers
+import brainpy.math as bm
+bp.math.set_platform('cpu')
 
 # %%
 import numpy as np
@@ -64,7 +61,7 @@ batch_size = dataset.batch_size
 
 
 # %%
-class RNN(layers.Module):
+class RNN(bp.layers.Module):
   def __init__(self, num_input, num_hidden, num_output, num_batch, dt=None, seed=None,
                w_ir=bp.init.KaimingNormal(scale=1.),
                w_rr=bp.init.KaimingNormal(scale=1.),

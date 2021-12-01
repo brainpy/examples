@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: brainpy
 #     language: python
-#     name: python3
+#     name: brainpy
 # ---
 
 # %% [markdown]
@@ -39,14 +39,14 @@
 
 # %%
 import brainpy as bp
+import brainpy.math as bm
+bm.set_platform('cpu')
 
 
 # %%
 class CANN1D(bp.NeuGroup):
-  
-
   def __init__(self, num, tau=1., k=8.1, a=0.5, A=10., J0=4.,
-               z_min=-bp.math.pi, z_max=bp.math.pi, **kwargs):
+               z_min=-bm.pi, z_max=bm.pi, **kwargs):
     super(CANN1D, self).__init__(size=num, **kwargs)
 
     # parameters
@@ -60,63 +60,68 @@ class CANN1D(bp.NeuGroup):
     self.z_min = z_min
     self.z_max = z_max
     self.z_range = z_max - z_min
-    self.x = bp.math.linspace(z_min, z_max, num)  # The encoded feature values
+    self.x = bm.linspace(z_min, z_max, num)  # The encoded feature values
     self.rho = num / self.z_range  # The neural density
     self.dx = self.z_range / num  # The stimulus density
 
     # variables
-    self.u = bp.math.Variable(bp.math.zeros(num))
-    self.input = bp.math.Variable(bp.math.zeros(num))
+    self.u = bm.Variable(bm.zeros(num))
+    self.input = bm.Variable(bm.zeros(num))
 
     # The connection matrix
     self.conn_mat = self.make_conn(self.x)
     
     # function
-    self.integral = op.odeint(self.derivative)
+    self.integral = bp.odeint(self.derivative)
 
   def derivative(self, u, t, Iext):
-    r1 = bp.math.square(u)
-    r2 = 1.0 + self.k * bp.math.sum(r1)
+    r1 = bm.square(u)
+    r2 = 1.0 + self.k * bm.sum(r1)
     r = r1 / r2
-    Irec = bp.math.dot(self.conn_mat, r)
+    Irec = bm.dot(self.conn_mat, r)
     du = (-u + Irec + Iext) / self.tau
     return du
 
   def dist(self, d):
-    d = bp.math.remainder(d, self.z_range)
-    d = bp.math.where(d > 0.5 * self.z_range, d - self.z_range, d)
+    d = bm.remainder(d, self.z_range)
+    d = bm.where(d > 0.5 * self.z_range, d - self.z_range, d)
     return d
 
   def make_conn(self, x):
-    assert bp.math.ndim(x) == 1
-    x_left = bp.math.reshape(x, (-1, 1))
-    x_right = bp.math.repeat(x.reshape((1, -1)), len(x), axis=0)
+    assert bm.ndim(x) == 1
+    x_left = bm.reshape(x, (-1, 1))
+    x_right = bm.repeat(x.reshape((1, -1)), len(x), axis=0)
     d = self.dist(x_left - x_right)
-    Jxx = self.J0 * bp.math.exp(-0.5 * bp.math.square(d / self.a)) / \
-          (bp.math.sqrt(2 * bp.math.pi) * self.a)
+    Jxx = self.J0 * bm.exp(-0.5 * bm.square(d / self.a)) / \
+          (bm.sqrt(2 * bm.pi) * self.a)
     return Jxx
 
   def get_stimulus_by_pos(self, pos):
-    return self.A * bp.math.exp(-0.25 * bp.math.square(self.dist(self.x - pos) / self.a))
+    return self.A * bm.exp(-0.25 * bm.square(self.dist(self.x - pos) / self.a))
 
   def update(self, _t, _dt):
     self.u[:] = self.integral(self.u, _t, self.input)
     self.input[:] = 0.
 
+# %%
+cann = CANN1D(num=512, k=0.1)
+
+
 # %% [markdown]
 # ## Population coding
 
 # %%
-cann = CANN1D(num=512, k=0.1, monitors=['u'])
-
 I1 = cann.get_stimulus_by_pos(0.)
 Iext, duration = bp.inputs.section_input(values=[0., I1, 0.],
                                          durations=[1., 8., 8.],
                                          return_length=True)
-cann.run(duration=duration, inputs=('input', Iext, 'iter'), report=0.1)
-
+runner = bp.StructRunner(cann,
+                         inputs=['input', Iext, 'iter'],
+                         monitors=['u'],
+                         dyn_vars=cann.vars())
+runner(duration)
 bp.visualize.animate_1D(
-  dynamical_vars=[{'ys': cann.mon.u, 'xs': cann.x, 'legend': 'u'},
+  dynamical_vars=[{'ys': runner.mon.u, 'xs': cann.x, 'legend': 'u'},
                   {'ys': Iext, 'xs': cann.x, 'legend': 'Iext'}],
   frame_step=1,
   frame_delay=100,
@@ -134,20 +139,24 @@ bp.visualize.animate_1D(
 # The cann can perform efficient population decoding by achieving template-matching.
 
 # %%
-cann = CANN1D(num=512, k=8.1, monitors=['u'])
+cann.k = 8.1
 
 dur1, dur2, dur3 = 10., 30., 0.
-num1 = int(dur1 / bp.math.get_dt())
-num2 = int(dur2 / bp.math.get_dt())
-num3 = int(dur3 / bp.math.get_dt())
-Iext = bp.math.zeros((num1 + num2 + num3,) + cann.size)
+num1 = int(dur1 / bm.get_dt())
+num2 = int(dur2 / bm.get_dt())
+num3 = int(dur3 / bm.get_dt())
+Iext = bm.zeros((num1 + num2 + num3,) + cann.size)
 Iext[:num1] = cann.get_stimulus_by_pos(0.5)
 Iext[num1:num1 + num2] = cann.get_stimulus_by_pos(0.)
-Iext[num1:num1 + num2] += 0.1 * cann.A * bp.math.random.randn(num2, *cann.size)
-cann.run(duration=dur1 + dur2 + dur3, inputs=('input', Iext, 'iter'), report=0.1)
+Iext[num1:num1 + num2] += 0.1 * cann.A * bm.random.randn(num2, *cann.size)
 
+runner = bp.StructRunner(cann,
+                         inputs=('input', Iext, 'iter'),
+                         monitors=['u'],
+                         dyn_vars=cann.vars())
+runner(dur1 + dur2 + dur3)
 bp.visualize.animate_1D(
-  dynamical_vars=[{'ys': cann.mon.u, 'xs': cann.x, 'legend': 'u'},
+  dynamical_vars=[{'ys': runner.mon.u, 'xs': cann.x, 'legend': 'u'},
                   {'ys': Iext, 'xs': cann.x, 'legend': 'Iext'}],
   frame_step=5,
   frame_delay=50,
@@ -164,21 +173,22 @@ bp.visualize.animate_1D(
 # The cann can track moving stimulus.
 
 # %%
-cann = CANN1D(num=512, k=8.1, monitors=['u'])
-
 dur1, dur2, dur3 = 20., 20., 20.
-num1 = int(dur1 / bp.math.get_dt())
-num2 = int(dur2 / bp.math.get_dt())
-num3 = int(dur3 / bp.math.get_dt())
-position = bp.math.zeros(num1 + num2 + num3)
-position[num1: num1 + num2] = bp.math.linspace(0., 12., num2)
+num1 = int(dur1 / bm.get_dt())
+num2 = int(dur2 / bm.get_dt())
+num3 = int(dur3 / bm.get_dt())
+position = bm.zeros(num1 + num2 + num3)
+position[num1: num1 + num2] = bm.linspace(0., 12., num2)
 position[num1 + num2:] = 12.
 position = position.reshape((-1, 1))
 Iext = cann.get_stimulus_by_pos(position)
-cann.run(duration=dur1 + dur2 + dur3, inputs=('input', Iext, 'iter'), report=0.1)
-
+runner = bp.StructRunner(cann,
+                         inputs=('input', Iext, 'iter'),
+                         monitors=['u'],
+                         dyn_vars=cann.vars())
+runner(dur1 + dur2 + dur3)
 bp.visualize.animate_1D(
-  dynamical_vars=[{'ys': cann.mon.u, 'xs': cann.x, 'legend': 'u'},
+  dynamical_vars=[{'ys': runner.mon.u, 'xs': cann.x, 'legend': 'u'},
                   {'ys': Iext, 'xs': cann.x, 'legend': 'Iext'}],
   frame_step=5,
   frame_delay=50,

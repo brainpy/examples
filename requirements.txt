@@ -3,5 +3,5 @@ docutils
 Jinja2
 sphinx
 nbsphinx
-brain-py>=1.1.0
+brain-py>=1.1.0, <2.0.0
 sphinx_rtd_theme>=1.0.0

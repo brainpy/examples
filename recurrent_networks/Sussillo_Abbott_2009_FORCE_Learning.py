@@ -8,13 +8,13 @@
 # - Sussillo, David, and Larry F. Abbott. "Generating coherent patterns of activity from chaotic neural networks." Neuron 63, no. 4 (2009): 544-557.
 
 # %%
-import numpy as np
 import brainpy as bp
-import brainpy.math.jax as bm
-import matplotlib.pyplot as plt
+import brainpy.math as bm
+bm.set_platform('cpu')
 
 # %%
-bp.math.use_backend('jax')
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 # %%
