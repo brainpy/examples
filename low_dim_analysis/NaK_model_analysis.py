@@ -93,7 +93,7 @@ def integral(V, n, t, Iext):
 # Here we show the codimension 1 bifurcation analysis of the $I_{\rm{Na,p+}}-I_K$ Model, in which $I_{ext}$ is varied in [0., 50.].
 
 # %%
-analyzer = bp.symbolic.Bifurcation(
+analyzer = bp.symbolic.OldBifurcation(
   integral,
   target_pars={'Iext': [0, 50.]},
   target_vars={"V": [-90., 20.], 'n': [0., 1.],  },
@@ -109,7 +109,7 @@ analyzer.plot_bifurcation(show=True)
 # Codimension 2 bifurcation analysis of the $I_{\rm{Na,p+}}-I_K$ Model, in which $I_{ext}$ is varied in [0., 50.], and "Vn_half" is varied in [-50, -40].
 
 # %%
-analyzer = bp.symbolic.Bifurcation(
+analyzer = bp.symbolic.OldBifurcation(
   integral,
   target_pars={'Iext': [0, 50.], 'Vn_half': [-50, -40]},
   target_vars={'n': [0., 1.], "V": [-90., 20.], },

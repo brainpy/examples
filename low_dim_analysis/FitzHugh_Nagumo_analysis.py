@@ -31,7 +31,6 @@ bm.set_dt(dt=0.02)
 
 # %%
 class FitzHughNagumo(bp.NeuGroup):
-
     def __init__(self, size, a=0.7, b=0.8, tau=12.5, Vth=1.9, **kwargs):
         super(FitzHughNagumo, self).__init__(size=size, **kwargs)
 
@@ -75,10 +74,10 @@ bp.visualize.line_plot(FNs.mon.ts, FNs.mon.V, show=True)
 # ## Phase plane analysis
 
 # %%
-phase = bp.symbolic.PhasePlane(FNs,
-                               target_vars={'V': [-3, 2], 'w': [-2, 2]},
-                               fixed_vars=None,
-                               pars_update={'Iext': 1., "a": 0.7, 'b': 0.8, 'tau': 12.5})
+phase = bp.symbolic.OldPhasePlane(FNs,
+                                  target_vars={'V': [-3, 2], 'w': [-2, 2]},
+                                  fixed_vars=None,
+                                  pars_update={'Iext': 1., "a": 0.7, 'b': 0.8, 'tau': 12.5})
 phase.plot_nullcline()
 phase.plot_fixed_point()
 # phase.plot_trajectory(initials={'V': -1, 'w': 1}, duration=100.)
@@ -89,22 +88,22 @@ phase.plot_vector_field(show=True)
 # ## Codimension 1 bifurcation analysis
 
 # %%
-bifurcation = bp.symbolic.Bifurcation(FNs,
-                                      target_pars={'Iext': [-1, 1]},
-                                      target_vars={'V': [-3, 2], 'w': [-2, 2]},
-                                      fixed_vars=None,
-                                      pars_update={'a': 0.7, 'b': 0.8, 'tau': 12.5},
-                                      numerical_resolution=0.01)
+bifurcation = bp.symbolic.OldBifurcation(FNs,
+                                         target_pars={'Iext': [-1, 1]},
+                                         target_vars={'V': [-3, 2], 'w': [-2, 2]},
+                                         fixed_vars=None,
+                                         pars_update={'a': 0.7, 'b': 0.8, 'tau': 12.5},
+                                         numerical_resolution=0.01)
 bifurcation.plot_bifurcation(show=True)
 
 # %% [markdown]
 # ## Codimension 2 bifurcation analysis
 
 # %%
-bifurcation = bp.symbolic.Bifurcation(FNs,
-                                      target_pars=dict(a=[0.5, 1.], Iext=[0., 1.]),
-                                      target_vars=dict(V=[-3, 3], w=[-3., 3.]),
-                                      fixed_vars=None,
-                                      pars_update={'b': 0.8, 'tau': 12.5},
-                                      numerical_resolution=0.01)
+bifurcation = bp.symbolic.OldBifurcation(FNs,
+                                         target_pars=dict(a=[0.5, 1.], Iext=[0., 1.]),
+                                         target_vars=dict(V=[-3, 3], w=[-3., 3.]),
+                                         fixed_vars=None,
+                                         pars_update={'b': 0.8, 'tau': 12.5},
+                                         numerical_resolution=0.01)
 bifurcation.plot_bifurcation(show=True)

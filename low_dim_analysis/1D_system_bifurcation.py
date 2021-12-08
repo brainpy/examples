@@ -33,19 +33,34 @@ import brainpy as bp
 # %%
 @bp.odeint
 def int_x(x, t, Iext):
-    dx = x ** 3 - x + Iext
-    return dx
+  dx = x ** 3 - x + Iext
+  return dx
 
+
+# %% [markdown]
+
+# %%
+# analyzer = bp.symbolic.PhasePlane(int_x,
+#                                   target_vars={'x': [-10, 10]},
+#                                   pars_update={'Iext': 0.})
+# analyzer.plot_vector_field()
+# analyzer.plot_fixed_point(show=True)
+
+analyzer = bp.numeric.OldPhasePlane(int_x,
+                                    target_vars={'x': [-10, 10]},
+                                    pars_update={'Iext': 0.})
+analyzer.plot_vector_field()
+analyzer.plot_fixed_point(show=True)
 
 # %% [markdown]
 # Then, create a bifurcation analyzer with ``bp.symbolic.Bifurcation``.
 
 # %%
-an = bp.symbolic.Bifurcation(
-    int_x,
-    target_pars={'Iext': [-0.5, 0.5]},
-    target_vars={"x": [-2, 2]},
-    numerical_resolution=0.0001)
+an = bp.symbolic.OldBifurcation(
+  int_x,
+  target_pars={'Iext': [-0.5, 0.5]},
+  target_vars={"x": [-2, 2]},
+  numerical_resolution=0.0001)
 
 _ = an.plot_bifurcation(show=True)
 
@@ -61,16 +76,16 @@ _ = an.plot_bifurcation(show=True)
 # %%
 @bp.odeint
 def int_x(x, t, mu, lambda_):
-    dxdt = mu + lambda_ * x - x ** 3
-    return dxdt
+  dxdt = mu + lambda_ * x - x ** 3
+  return dxdt
 
 
 # %%
 # please install numba!=0.54.x, because they have bugs
 
-analyzer = bp.symbolic.Bifurcation(
-    int_x,
-    target_pars={'mu': [-4, 4], 'lambda_': [-1, 4]},
-    target_vars={'x': [-3, 3]},
-    numerical_resolution=0.1)
+analyzer = bp.symbolic.OldBifurcation(
+  int_x,
+  target_pars={'mu': [-4, 4], 'lambda_': [-1, 4]},
+  target_vars={'x': [-3, 3]},
+  numerical_resolution=0.1)
 _ = analyzer.plot_bifurcation(show=True)

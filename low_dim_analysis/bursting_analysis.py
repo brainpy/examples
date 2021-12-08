@@ -87,7 +87,7 @@ bp.visualize.line_plot(group.mon.ts, group.mon.z, legend='z', show=True)
 # ### Phase plane analysis
 
 # %%
-analyzer = bp.symbolic.PhasePlane(
+analyzer = bp.symbolic.OldPhasePlane(
     group.integral,
     target_vars={'V': [-3, 3], 'y': [-10., 5.]},
     fixed_vars={'z': 0.},
@@ -104,7 +104,7 @@ analyzer.plot_trajectory([{'V': 0., 'y': 0.}],
 # ## Bifurcation Diagram
 
 # %%
-analyzer = bp.symbolic.FastSlowBifurcation(
+analyzer = bp.symbolic.OldFastSlowBifurcation(
     group.integral,
     fast_vars={'V': [-3, 3], 'y': [-10., 5.]},
     slow_vars={'z': [-5., 5.]},
