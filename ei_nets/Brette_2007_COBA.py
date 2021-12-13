@@ -54,33 +54,6 @@ we = 0.6  # excitatory synaptic weight (voltage)
 wi = 6.7  # inhibitory synaptic weight
 ref = 5.0
 
-# %% [markdown]
-# ## Implementation 1
-
-# %%
-# neuron groups
-pars = dict(V_rest=Vr, V_th=Vt, V_reset=El, tau=taum)
-E = brainmodels.LIF(num_exc, tau_ref=ref, monitors=['spike'], **pars)
-I = brainmodels.LIF(num_inh, tau_ref=ref, **pars)
-E.V[:] = bp.math.random.randn(E.num) * 5. - 55.
-I.V[:] = bp.math.random.randn(I.num) * 5. - 55.
-
-# %%
-# synapses
-E2E = brainmodels.ExpCOBA(E, E, bp.connect.FixedProb(prob=0.02), E=Erev_exc, g_max=we, tau=taue)
-E2I = brainmodels.ExpCOBA(E, I, bp.connect.FixedProb(prob=0.02), E=Erev_exc, g_max=we, tau=taue)
-I2E = brainmodels.ExpCOBA(I, E, bp.connect.FixedProb(prob=0.02), E=Erev_inh, g_max=wi, tau=taui)
-I2I = brainmodels.ExpCOBA(I, I, bp.connect.FixedProb(prob=0.02), E=Erev_inh, g_max=wi, tau=taui)
-
-# %%
-# network
-net = bp.math.jit(bp.Network(E2E, E2I, I2I, I2E, E=E, I=I))
-
-# %%
-# simulation and visualization
-net.run(100., inputs=[('E.input', Ib), ('I.input', Ib)], report=0.1)
-bp.visualize.raster_plot(E.mon.ts, E.mon.spike, show=True)
-
 
 # %% [markdown]
 # ## Implementation 2

@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.4
+#       jupytext_version: 1.11.5
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -30,6 +30,7 @@
 
 # %%
 import brainpy as bp
+import brainpy.math as bm
 
 # %%
 import matplotlib.colors as mcolors
@@ -72,13 +73,13 @@ class WorkingMemoryModel(bp.NeuGroup):
   def __init__(self, size, **kwargs):
     super(WorkingMemoryModel, self).__init__(size, **kwargs)
 
-    self.hi = 0.
-    self.u = bp.math.ones(cluster_num) * U
-    self.x = bp.math.ones(cluster_num)
-    self.h = bp.math.zeros(cluster_num)
-    self.input = bp.math.zeros(cluster_num)
-    self.inh_r = self.log(self.hi)
-    self.r = self.log(self.h)
+    self.hi = bm.Variable(bm.asarray([0.]))
+    self.u = bm.Variable(bm.ones(cluster_num) * U)
+    self.x = bm.Variable(bm.ones(cluster_num))
+    self.h = bm.Variable(bm.zeros(cluster_num))
+    self.input = bm.Variable(bm.zeros(cluster_num))
+    self.inh_r = bm.Variable(self.log(self.hi))
+    self.r = bm.Variable(self.log(self.h))
 
     self.integral = bp.odeint(self.derivative)
 
@@ -86,25 +87,25 @@ class WorkingMemoryModel(bp.NeuGroup):
     du = (U - u) / tau_f + U * (1 - u) * r
     dx = (1 - x) / tau_d - u * x * r
     dh = (-h + J_EE * u * x * r - J_EI * r_inh + Iext + Ib) / tau
-    dhi = (-hi + J_IE * bp.math.sum(r) + Iinh) / tau_I
+    dhi = (-hi + J_IE * bm.sum(r) + Iinh) / tau_I
     return du, dx, dh, dhi
 
   def log(self, h):
-    return alpha * bp.math.log(1. + bp.math.exp(h / alpha))
+    return alpha * bm.log(1. + bm.exp(h / alpha))
 
   def update(self, _t, _dt):
-    self.u, self.x, self.h, self.hi = self.int_exc(
+    self.u[:], self.x[:], self.h[:], self.hi[:] = self.integral(
       self.u, self.x, self.h, self.hi, _t,
       self.r, self.inh_r, self.input)
-    self.r = self.log(self.h)
-    self.inh_r = self.log(self.hi)
-    self.input = 0.
+    self.r[:] = self.log(self.h)
+    self.inh_r[:] = self.log(self.hi)
+    self.input[:] = 0.
 
 
 # %%
 # the external input
 
-I_inputs = bp.math.zeros((int(duration / dt), cluster_num))
+I_inputs = bm.zeros((int(duration / dt), cluster_num))
 for i in range(stimulus_num):
   t_start = (Ts_interval + Ts_duration) * i + Ts_interval
   t_end = t_start + Ts_duration

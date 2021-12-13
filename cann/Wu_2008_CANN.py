@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: brainpy
 #     language: python
-#     name: python3
+#     name: brainpy
 # ---
 
 # %% [markdown]
@@ -43,8 +43,6 @@ import brainpy as bp
 
 # %%
 class CANN1D(bp.NeuGroup):
-  
-
   def __init__(self, num, tau=1., k=8.1, a=0.5, A=10., J0=4.,
                z_min=-bp.math.pi, z_max=bp.math.pi, **kwargs):
     super(CANN1D, self).__init__(size=num, **kwargs)
@@ -72,7 +70,7 @@ class CANN1D(bp.NeuGroup):
     self.conn_mat = self.make_conn(self.x)
     
     # function
-    self.integral = op.odeint(self.derivative)
+    self.integral = bp.odeint(self.derivative)
 
   def derivative(self, u, t, Iext):
     r1 = bp.math.square(u)
@@ -102,6 +100,7 @@ class CANN1D(bp.NeuGroup):
   def update(self, _t, _dt):
     self.u[:] = self.integral(self.u, _t, self.input)
     self.input[:] = 0.
+
 
 # %% [markdown]
 # ## Population coding
