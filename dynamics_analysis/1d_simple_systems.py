@@ -38,6 +38,7 @@ def int_x(x, t, Iext):
 
 
 # %% [markdown]
+#
 
 # %%
 # analyzer = bp.symbolic.PhasePlane(int_x,

@@ -95,9 +95,15 @@ to implement various neuron models or network models.
    :maxdepth: 1
    :caption: Dynamics Analysis
 
-   low_dim_analysis/1D_system_bifurcation.ipynb
-   low_dim_analysis/FitzHugh_Nagumo_analysis.ipynb
-   low_dim_analysis/bursting_analysis.ipynb
+   dynamics_analysis/1d_simple_systems.ipynb
+   dynamics_analysis/2d_decision_making_model.ipynb
+   ../decision_making/Wang_2006_decision_making_rate.ipynb
+   dynamics_analysis/2d_fitzhugh_nagumo_model.ipynb
+   dynamics_analysis/2d_NaK_model.ipynb
+   dynamics_analysis/3d_hindmarsh_rose_model.ipynb
+   dynamics_analysis/highdim_CANN.ipynb
+   dynamics_analysis/highdim_gj_coupled_fhn.ipynb
+   ../recurrent_networks/Yang_2020_RNN_Analysis.ipynb
 
 
 
