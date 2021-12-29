@@ -83,16 +83,17 @@ class CANN1D(bp.NeuGroup):
 # ## Helper functions
 
 # %%
-def find_fixed_points(cann, do_pca=False, do_animation=False):
+def find_fixed_points(cann, do_pca=False, do_animation=False, tolerance=1e-8):
   candidates = cann.get_stimulus_by_pos(bm.arange(-bm.pi, bm.pi, 0.005).reshape((-1, 1)))
 
-  finder = bp.analysis.FixedPointFinder(candidates=candidates, f_cell=cann.cell, noise=0.5)
-  finder.optimize_fixed_points(
+  finder = bp.analysis.SlowPointFinder(f_cell=cann.cell)
+  finder.find_fps_with_gd_method(
+    candidates=candidates,
     tolerance=1e-6, num_batch=200,
     opt_setting=dict(method=bm.optimizers.Adam,
                      lr=bm.optimizers.ExponentialDecay(0.1, 2, 0.999)),
   )
-  finder.filter_loss(1e-8)
+  finder.filter_loss(tolerance)
   finder.keep_unique()
   finder.exclude_outliers()
 
@@ -131,8 +132,7 @@ def verify_fp_through_simulation(cann, fixed_points, num=3):
 
 # %%
 def verify_fixed_point_stability(cann, fixed_points, num=3):
-  finder = bp.analysis.FixedPointFinder(candidates=bm.random.rand(10),
-                                        f_cell=cann.cell, noise=0.0)
+  finder = bp.analysis.SlowPointFinder(f_cell=cann.cell)
   J = finder.compute_jacobians(fixed_points[:num])
 
   for i in range(num):
@@ -173,3 +173,33 @@ visualize_fixed_points(fps, plot_ids=(0, 10, 20, 30, 40, 50, 60), xs=model.x)
 
 # %%
 verify_fixed_point_stability(model, fps, num=6)
+
+# %% [markdown]
+# ## Results 2
+
+# %%
+model2 = CANN1D(num=512, k=0.1, A=10, a=0.5)
+
+# %%
+fps2 = find_fixed_points(model2, do_pca=True, do_animation=False, tolerance=1e-6)
+
+# %%
+visualize_fixed_points(fps2, plot_ids=(0, 10, 20, 30, 40, 50, 60), xs=model2.x)
+
+# %%
+verify_fixed_point_stability(model2, fps2, num=6)
+
+# %% [markdown]
+# ## Results 3
+
+# %%
+model3 = CANN1D(num=512, k=0.1, A=10, a=1.)
+
+# %%
+fps3 = find_fixed_points(model3, do_pca=True, do_animation=False, tolerance=1e-7)
+
+# %%
+visualize_fixed_points(fps3, plot_ids=(0, 10, 20, 30, 40, 50, 60), xs=model3.x)
+
+# %%
+verify_fixed_point_stability(model3, fps3, num=6)

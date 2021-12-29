@@ -9,9 +9,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: brainpy
 #     language: python
-#     name: python3
+#     name: brainpy
 # ---
 
 # %% [markdown]
@@ -22,12 +22,13 @@
 #
 # - *Tian, Gengshuo, et al. "Excitation-Inhibition Balanced Neural Networks for Fast Signal Detection." Frontiers in Computational Neuroscience 14 (2020): 79.*
 #
-# Author:
-#
-# - Chaoming Wang (chao.brain@qq.com)
+# Author: [Chaoming Wang](https://github.com/chaoming0625)
 
 # %%
 import brainpy as bp
+import brainpy.math as bm
+
+bp.math.set_platform('cpu')
 
 # %%
 # set parameters
@@ -54,12 +55,7 @@ JII = -1.
 
 
 # %%
-# define neuron type
-
-
 class LIF(bp.NeuGroup):
-  target_backend = 'numpy'
-
   def __init__(self, size, tau, **kwargs):
     super(LIF, self).__init__(size, **kwargs)
 
@@ -71,83 +67,50 @@ class LIF(bp.NeuGroup):
     self.spike = bp.math.Variable(bp.math.zeros(size, dtype=bool))
     self.input = bp.math.Variable(bp.math.zeros(size))
 
-    self.integral = bp.odeint(self.derivative)
-
-  def derivative(self, V, t, Isyn):
-    return (-V + Isyn) / self.tau
+    # integral
+    self.integral = bp.odeint(lambda V, t, Isyn: (-V + Isyn) / self.tau)
 
   def update(self, _t, _dt):
-    for i in range(self.num):
-      V = self.integral(self.V[i], _t, self.input[i])
-      if V >= V_threshold:
-        self.spike[i] = True
-        V = V_reset
-      else:
-        self.spike[i] = False
-      self.V[i] = V
-      self.input[i] = 0.
+    V = self.integral(self.V, _t, self.input, _dt)
+    self.spike.value = V >= V_threshold
+    self.V.value = bm.where(self.spike, V_reset, V)
+    self.input[:] = 0.
 
 
 # %%
-# define synapse type
+class EINet(bp.Network):
+  def __init__(self):
+    # neurons
+    E = LIF(num_exc, tau=tau_E)
+    I = LIF(num_inh, tau=tau_I)
+    E.V[:] = bm.random.random(num_exc) * (V_threshold - V_reset) + V_reset
+    I.V[:] = bm.random.random(num_inh) * (V_threshold - V_reset) + V_reset
 
-class Syn(bp.TwoEndConn):
-  target_backend = 'numpy'
+    # synapses
+    E2I = bp.models.ExpCUBA(pre=E, post=I, conn=bp.conn.FixedProb(prob), tau=tau_Es, g_max=JIE)
+    E2E = bp.models.ExpCUBA(pre=E, post=E, conn=bp.conn.FixedProb(prob), tau=tau_Es, g_max=JEE)
+    I2I = bp.models.ExpCUBA(pre=I, post=I, conn=bp.conn.FixedProb(prob), tau=tau_Is, g_max=JII)
+    I2E = bp.models.ExpCUBA(pre=I, post=E, conn=bp.conn.FixedProb(prob), tau=tau_Is, g_max=JEI)
 
-  def __init__(self, pre, post, conn, tau, g_max, **kwargs):
-    super(Syn, self).__init__(pre, post, conn=conn, **kwargs)
-
-    # parameters
-    self.tau = tau
-    self.g_max = g_max
-
-    # connections
-    self.pre2post = self.conn.requires('pre2post')
-
-    # variables
-    self.s = bp.math.Variable(bp.math.zeros(post.num))
-
-    self.integral = bp.odeint(self.derivative)
-
-  def derivative(self, s, t):
-    return - s / self.tau
-
-  def update(self, _t, _dt):
-    self.s[:] = self.integral(self.s, _t)
-    for pre_i, spike in enumerate(self.pre.spike):
-      if spike:
-        for post_i in self.pre2post[pre_i]:
-          self.s[post_i] += 1.
-    self.post.input += self.g_max * self.s
+    super(EINet, self).__init__(E2E, E2I, I2E, I2I, E=E, I=I)
 
 
 # %%
-# build & simulate network
-E = LIF(num_exc, tau=tau_E, name='E', monitors=['spike'])
-E.V[:] = bp.math.random.random(num_exc) * (V_threshold - V_reset) + V_reset
+net = EINet()
 
-I = LIF(num_inh, tau=tau_I, name='I', monitors=['spike'])
-I.V[:] = bp.math.random.random(num_inh) * (V_threshold - V_reset) + V_reset
-
-E2I = Syn(pre=E, post=I, conn=bp.connect.FixedProb(prob=prob), tau=tau_Es, g_max=JIE)
-E2E = Syn(pre=E, post=E, conn=bp.connect.FixedProb(prob=prob), tau=tau_Es, g_max=JEE)
-I2I = Syn(pre=I, post=I, conn=bp.connect.FixedProb(prob=prob), tau=tau_Is, g_max=JII)
-I2E = Syn(pre=I, post=E, conn=bp.connect.FixedProb(prob=prob), tau=tau_Is, g_max=JEI)
-
-net = bp.Network(E, I, I2E, E2E, I2I, E2I)
-net = bp.math.jit(net)
-
-net.run(duration=100.,
-        inputs=[('E.input', f_E * bp.math.sqrt(num) * mu_f),
-                ('I.input', f_I * bp.math.sqrt(num) * mu_f)],
-        report=0.1)
+# %%
+runner = bp.StructRunner(net,
+                         monitors=['E.spike', 'I.spike'],
+                         inputs=[('E.input', f_E * bm.sqrt(num) * mu_f),
+                                 ('I.input', f_I * bm.sqrt(num) * mu_f)])
+t = runner.run(100.)
 
 # %%
 # visualization
 fig, gs = bp.visualize.get_figure(5, 1, 1.5, 10)
 
 fig.add_subplot(gs[:3, 0])
-bp.visualize.raster_plot(E.mon.ts, E.mon.spike, xlim=(0, 100))
+bp.visualize.raster_plot(runner.mon.ts, runner.mon['E.spike'], xlim=(0, 100))
 
 fig.add_subplot(gs[3:, 0])
-bp.visualize.raster_plot(I.mon.ts, I.mon.spike, xlim=(0, 100), show=True)
+bp.visualize.raster_plot(runner.mon.ts, runner.mon['I.spike'], xlim=(0, 100), show=True)

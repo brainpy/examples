@@ -275,7 +275,7 @@ fp_candidates = bm.vstack([activity_dict[i] for i in range(num_trial)])
 fp_candidates.shape
 
 # %%
-finder = bp.numeric.FixedPointFinder(
+finder = bp.numeric.SlowPointFinder(
   f_cell=f_cell,
   f_type='F',
   tol_opt=1e-5,

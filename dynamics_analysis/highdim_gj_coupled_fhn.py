@@ -84,10 +84,9 @@ def analyze_net(num=2, gjw=0.01, Iext=bm.asarray([0., 0.6])):
                            plot_ids=list(range(model.num)), show=True)
 
     # analysis
-    finder = bp.analysis.FixedPointFinder(
-      candidates=bm.random.normal(0., 2., (1000, model.num * 2)), f_cell=model.step,
-    )
-    finder.optimize_fixed_points(
+    finder = bp.analysis.SlowPointFinder(f_cell=model.step)
+    finder.find_fps_with_gd_method(
+      candidates=bm.random.normal(0., 2., (1000, model.num * 2)),
       tolerance=1e-5, num_batch=200,
       opt_setting=dict(method=bm.optimizers.Adam, lr=bm.optimizers.ExponentialDecay(0.05, 1, 0.9999)),
     )

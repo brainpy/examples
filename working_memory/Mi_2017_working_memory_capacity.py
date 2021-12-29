@@ -30,7 +30,8 @@ import matplotlib.pyplot as plt
 # %%
 import brainpy as bp
 import brainpy.math as bm
-bm.enable_x64(True)
+
+bm.enable_x64()
 bm.set_platform('cpu')
 
 # %%

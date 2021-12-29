@@ -56,13 +56,12 @@ def cell(s):
 
 
 # %%
-finder = bp.analysis.FixedPointFinder(
-candidates=bm.random.random((1000, 2)), f_cell=cell,
-)
-finder.optimize_fixed_points(
-tolerance=1e-5, num_batch=200,
-opt_setting=dict(method=bm.optimizers.Adam,
-                 lr=bm.optimizers.ExponentialDecay(0.01, 1, 0.9999)),
+finder = bp.analysis.SlowPointFinder(f_cell=cell, )
+finder.find_fps_with_gd_method(
+  candidates=bm.random.random((1000, 2)),
+  tolerance=1e-5, num_batch=200,
+  opt_setting=dict(method=bm.optimizers.Adam,
+                   lr=bm.optimizers.ExponentialDecay(0.01, 1, 0.9999)),
 )
 finder.filter_loss(1e-5)
 finder.keep_unique()

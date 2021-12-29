@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: brainpy
 #     language: python
-#     name: python3
+#     name: brainpy
 # ---
 
 # %% [markdown]
@@ -21,12 +21,13 @@
 #
 # - Brunel, Nicolas, and Vincent Hakim. "Fast global oscillations in networks of integrate-and-fire neurons with low firing rates." Neural computation 11.7 (1999): 1621-1671.
 #
-# Author:
-#
-# - Chaoming Wang (chao.brain@qq.com)
+# Author: [Chaoming Wang](mailto:chao.brain@qq.com)
 
 # %%
 import brainpy as bp
+import brainpy.math as bm
+
+bm.set_platform('cpu')
 
 # %%
 Vr = 10.  # mV
@@ -45,62 +46,39 @@ sparseness = float(C) / N
 
 # %%
 class LIF(bp.NeuGroup):
-  target_backend = 'numpy'
-
-  def f_v(self, V, t): return (-V + muext) / tau
-
-  def g_v(self, V, t): return sigmaext / bp.math.sqrt(tau)
-
   def __init__(self, size, **kwargs):
     super(LIF, self).__init__(size, **kwargs)
 
-    self.spike = bp.math.Variable(bp.math.zeros(self.num, dtype=bool))
-    self.not_ref = bp.math.Variable(bp.math.ones(self.num, dtype=bool))
-    self.V = bp.math.Variable(bp.math.ones(self.num) * Vr)
-    self.t_last_spike = bp.math.Variable(-1e7 * bp.math.ones(self.num))
+    # variables
+    self.V = bm.Variable(bm.ones(self.num) * Vr)
+    self.t_last_spike = bm.Variable(-1e7 * bm.ones(self.num))
+    self.spike = bm.Variable(bm.zeros(self.num, dtype=bool))
+    self.refractory = bm.Variable(bm.zeros(self.num, dtype=bool))
 
-    self.int_v = bp.sdeint(f=self.f_v, g=self.g_v)
-
-  def update(self, _t, _dt):
-    for i in range(self.num):
-      self.spike[i] = False
-      self.not_ref[i] = False
-      if (_t - self.t_last_spike[i]) > taurefr:
-        V = self.int_v(self.V[i], _t)
-        if V > theta:
-          self.spike[i] = True
-          self.V[i] = Vr
-          self.t_last_spike[i] = _t
-        else:
-          self.V[i] = V
-          self.not_ref[i] = True
-
-
-# %%
-class Syn(bp.TwoEndConn):
-  target_backend = 'numpy'
-
-  def __init__(self, pre, post, conn, delay, **kwargs):
-    super(Syn, self).__init__(pre, post, conn=conn, **kwargs)
-
-    self.pre2post = self.conn.requires('pre2post')
-    self.g = self.register_constant_delay('g', post.num, delay=delay)
+    # integration functions
+    fv = lambda V, t: (-V + muext) / tau
+    gv = lambda V, t: sigmaext / bm.sqrt(tau)
+    self.int_v = bp.sdeint(f=fv, g=gv)
 
   def update(self, _t, _dt):
-    s = bp.math.zeros(self.post.num)
-    for pre_i, spike in enumerate(self.pre.spike):
-      if spike:
-        for post_i in self.pre2post[pre_i]:
-          s[post_i] += J
-    self.g.push(s)
-    self.post.V -= self.g.pull() * self.post.not_ref
+    V = self.int_v(self.V, _t, dt=_dt)
+    in_ref = (_t - self.t_last_spike) < taurefr
+    V = bm.where(in_ref, self.V, V)
+    spike = V >= theta
+    self.spike.value = spike
+    self.V.value = bm.where(spike, Vr, V)
+    self.t_last_spike.value = bm.where(spike, _t, self.t_last_spike)
+    self.refractory.value = bm.logical_or(in_ref, spike)
 
 
 # %%
-group = LIF(N, monitors=['spike'])
-syn = Syn(pre=group, post=group, conn=bp.connect.FixedProb(sparseness), delay=delta)
-net = bp.math.jit(bp.Network(group, syn))
+group = LIF(N)
+syn = bp.models.DeltaSynapse(group, group, conn=bp.conn.FixedProb(sparseness),
+                             delay=delta, post_has_ref=True, post_key='V', w=-J)
+net = bp.Network(syn, group=group)
 
 # %%
-net.run(duration, report=0.1)
-bp.visualize.raster_plot(group.mon.ts, group.mon.spike, xlim=(0, duration), show=True)
+runner = bp.ReportRunner(net, monitors=['group.spike'], jit=True)
+runner.run(duration)
+bp.visualize.raster_plot(runner.mon.ts, runner.mon['group.spike'],
+                         xlim=(0, duration), show=True)

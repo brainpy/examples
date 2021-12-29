@@ -7,22 +7,16 @@
 #
 # - *Sherman, A., & Rinzel, J. (1992). Rhythmogenic effects of weak electrotonic coupling in neuronal models. Proceedings of the National Academy of Sciences, 89(6), 2471-2474.*
 # %% [markdown]
-# Author: 
-#
-# - Chaoming Wang (chao.brain@qq.com)
+# Author: [Chaoming Wang](https://github.com/chaoming0625)
 
 # %%
-# %matplotlib inline
-
 import brainpy as bp
-bp.math.set_dt(0.05)
+import brainpy.math as bm
+
+bp.math.set_platform('cpu')
 
 # %%
-import numba as nb
 import matplotlib.pyplot as plt
-
-import warnings
-warnings.filterwarnings("ignore")
 
 # %% [markdown]
 # ## Fig 1: weakly coupled cells can oscillate antiphase
@@ -93,66 +87,79 @@ g_s = 4
 
 
 # %%
-@nb.njit
-def revert(V):
-    return bp.math.concatenate((V[1:], V[:1]))
+class Model1(bp.DynamicalSystem):
+  def __init__(self, method='exp_auto'):
+    super(Model1, self).__init__()
 
+    # parameters
+    self.gc = bm.Variable(bm.zeros(1))
+    self.I = bm.Variable(bm.zeros(2))
+    self.S = 0.15
 
-# %%
-@bp.odeint(method='exponential_euler')
-def int_V_n(V, n, t, gc, I, S):
+    # variables
+    self.V = bm.Variable(bm.zeros(2))
+    self.n = bm.Variable(bm.zeros(2))
+
+    # integral
+    self.integral = bp.odeint(bp.JointEq([self.dV, self.dn]), method=method)
+
+  def dV(self, V, t, n):
     I_in = g_ca / (1 + bp.math.exp((V_m - V) / theta_m)) * (V - V_ca)
     I_out = g_K * n * (V - V_K)
-    Is = g_s * S * (V - V_K)
-    Ij = gc * (V - revert(V))
-    dV = (- I_in - I_out - Is - Ij + I) / tau
-    
+    Is = g_s * self.S * (V - V_K)
+    Ij = self.gc * bm.array([V[0] - V[1], V[1] - V[0]])
+    dV = (- I_in - I_out - Is - Ij + self.I) / tau
+    return dV
+
+  def dn(self, n, t, V):
     n_inf = 1 / (1 + bp.math.exp((V_n - V) / theta_n))
     dn = lambda_ * (n_inf - n) / tau
-    
-    return dV, dn
+    return dn
+
+  def update(self, _t, _dt):
+    V, n = self.integral(self.V, self.n, _t, _dt)
+    self.V.value = V
+    self.n.value = n
 
 
 # %%
-def plot_V_gc_I(times, hist_V, hist_gc, hist_I0, duration):
-    fig, gs = bp.visualize.get_figure(5, 1, 2, 12)
+def run_and_plot1(model, duration, inputs=None, plot_duration=None):
+  runner = bp.StructRunner(model, inputs=inputs, monitors=['V', 'n', 'gc', 'I'])
+  runner.run(duration)
 
-    fig.add_subplot(gs[0:3, 0])
-    plt.plot(times, bp.math.array(hist_V))
-    plt.ylabel('V [mV]')
-    plt.xlim(*duration)
+  fig, gs = bp.visualize.get_figure(5, 1, 2, 12)
+  plot_duration = (0, duration) if plot_duration is None else plot_duration
 
-    fig.add_subplot(gs[3, 0])
-    plt.plot(times, bp.math.array(hist_gc))
-    plt.ylabel(r'$g_c$')
-    plt.xlim(*duration)
+  fig.add_subplot(gs[0:3, 0])
+  plt.plot(runner.mon.ts, runner.mon.V)
+  plt.ylabel('V [mV]')
+  plt.xlim(*plot_duration)
 
-    fig.add_subplot(gs[4, 0])
-    plt.plot(times, bp.math.array(hist_I0))
-    plt.ylabel(r'$I_0$')
-    plt.xlim(*duration)
+  fig.add_subplot(gs[3, 0])
+  plt.plot(runner.mon.ts, runner.mon.gc)
+  plt.ylabel(r'$g_c$')
+  plt.xlim(*plot_duration)
 
-    plt.xlabel('Time [ms]')
-    plt.show()
+  fig.add_subplot(gs[4, 0])
+  plt.plot(runner.mon.ts, runner.mon.I[:, 0])
+  plt.ylabel(r'$I_0$')
+  plt.xlim(*plot_duration)
 
-# %%
-S = 0.15
-times = bp.math.arange(0, 7000, bp.math.get_dt())
-V = bp.math.array([-55., -55.])
-n = 1 / (1 + bp.math.exp((V_n - V) / theta_n))
+  plt.xlabel('Time [ms]')
+  plt.show()
 
-hist_V = []
-gc, _ = bp.inputs.constant_current([(0,     500), 
-                                    (0.08, 5000),
-                                    (0.24, 1500)])
-Is, _ = bp.inputs.constant_current([(0.,                   500), 
-                                    (bp.math.array([0.3, 0.]), 6500)])
-for i, t in enumerate(times):
-    V, n = int_V_n(V, n, t, gc[i], Is[i], S)
-    hist_V.append(V)
 
 # %%
-plot_V_gc_I(times, hist_V, gc, Is[:, 0], duration=(0, 7000))
+model = Model1()
+model.S = 0.15
+model.V[:] = -55.
+model.n[:] = 1 / (1 + bm.exp((V_n - model.V) / theta_n))
+
+# %%
+gc = bp.inputs.section_input(values=[0., 0.0, 0.24], durations=[500, 5000, 1500])
+Is = bp.inputs.section_input(values=[0., bm.array([0.3, 0.])], durations=[500., 6500.])
+run_and_plot1(model, duration=7000, inputs=[('gc', gc, 'iter', '='),
+                                            ('I', Is, 'iter', '=')])
 
 # %% [markdown]
 # ## Fig 2: weak coupling can convert excitable cells into spikers
@@ -168,25 +175,18 @@ plot_V_gc_I(times, hist_V, gc, Is[:, 0], duration=(0, 7000))
 # that they continue to oscillate after the stimulus terminates.
 
 # %%
-S = 0.177
-times = bp.math.arange(0, 4500, bp.math.get_dt())
-V = -62.69 * bp.math.ones(2)
-n = 1 / (1 + bp.math.exp((V_n - V) / theta_n))
+model = Model1()
+model.S = 0.177
+model.V[:] = -62.69
+model.n[:] = 1 / (1 + bm.exp((V_n - model.V) / theta_n))
 
-hist_V = []
-gc = bp.inputs.section_input(values=[0, 0.04], 
-                             durations=[2000, 2500])
-Is = bp.inputs.section_input(values=[bp.math.array([1., 0.]), 0., bp.math.array([1., 0.]), 0.],
+# %%
+gc = bp.inputs.section_input(values=[0, 0.04], durations=[2000, 2500])
+Is = bp.inputs.section_input(values=[bm.array([1., 0.]), 0., bm.array([1., 0.]), 0.],
                              durations=[500, 2000, 500, 1500])
-for i, t in enumerate(times):
-    V, n = int_V_n(V, n, t, gc[i], Is[i], S)
-    hist_V.append(V)
 
-# %%
-times.shape, Is.shape
-
-# %%
-plot_V_gc_I(times, hist_V, gc, Is[:, 0], duration=(0, 4500))
+run_and_plot1(model, 4500, inputs=[('gc', gc, 'iter', '='),
+                                   ('I', Is, 'iter', '=')])
 
 # %% [markdown]
 # ## Fig 3: weak coupling can increase the period of bursting
@@ -208,38 +208,68 @@ theta_S = 10  # mV
 
 
 # %%
-@bp.odeint(method='exponential_euler')
-def int_V_n_S(V, n, S, t, lambda_, gc, I):
-    I_in = g_ca / (1 + bp.math.exp((V_m - V) / theta_m)) * (V - V_ca)
+class Model2(bp.DynamicalSystem):
+  def __init__(self, method='exp_auto'):
+    super(Model2, self).__init__()
+
+    # parameters
+    self.lambda_ = 0.1
+    self.gc = bm.Variable(bm.zeros(1))
+    self.I = bm.Variable(bm.zeros(2))
+
+    # variables
+    self.V = bm.Variable(bm.zeros(2))
+    self.n = bm.Variable(bm.zeros(2))
+    self.S = bm.Variable(bm.zeros(2))
+
+    # integral
+    self.integral = bp.odeint(bp.JointEq([self.dV, self.dn, self.dS]), method=method)
+
+  def dV(self, V, t, n, S):
+    I_in = g_ca / (1 + bm.exp((V_m - V) / theta_m)) * (V - V_ca)
     I_out = g_K * n * (V - V_K)
     Is = g_s * S * (V - V_K)
-    Ij = gc * (V - revert(V))
-    dV = (- I_in - I_out - Is - Ij + I) / tau
-    
-    n_inf = 1 / (1 + bp.math.exp((V_n - V) / theta_n))
-    dn = lambda_ * (n_inf - n) / tau
-    
-    S_inf = 1 / (1 + bp.math.exp((V_S - V) / theta_S))
+    Ij = self.gc * bm.array([V[0] - V[1], V[1] - V[0]])
+    dV = (- I_in - I_out - Is - Ij + self.I) / tau
+    return dV
+
+  def dn(self, n, t, V):
+    n_inf = 1 / (1 + bm.exp((V_n - V) / theta_n))
+    dn = self.lambda_ * (n_inf - n) / tau
+    return dn
+
+  def dS(self, S, t, V):
+    S_inf = 1 / (1 + bm.exp((V_S - V) / theta_S))
     dS = (S_inf - S) / tau_S
-    
-    return dV, dn, dS
+    return dS
+
+  def update(self, _t, _dt):
+    V, n, S = self.integral(self.V, self.n, self.S, _t, dt=_dt)
+    self.V.value = V
+    self.n.value = n
+    self.S.value = S
 
 
 # %%
-def plot_V_S(times, hist_V, hist_S, duration):
-    fig, gs = bp.visualize.get_figure(5, 1, 2, 12)
+def run_and_plot2(model, duration, inputs=None, plot_duration=None):
+  runner = bp.StructRunner(model, inputs=inputs, monitors=['V', 'S'])
+  runner.run(duration)
 
-    fig.add_subplot(gs[0:3, 0])
-    plt.plot(times, bp.math.array(hist_V))
-    plt.ylabel('V [mV]')
-    plt.xlim(*duration)
+  fig, gs = bp.visualize.get_figure(5, 1, 2, 12)
+  plot_duration = (0, duration) if plot_duration is None else plot_duration
 
-    fig.add_subplot(gs[3:, 0])
-    plt.plot(times, bp.math.array(hist_S))
-    plt.ylabel('S')
-    plt.xlim(*duration)
+  fig.add_subplot(gs[0:3, 0])
+  plt.plot(runner.mon.ts, runner.mon.V)
+  plt.ylabel('V [mV]')
+  plt.xlim(*plot_duration)
 
-    plt.xlabel('Time [ms]')
+  fig.add_subplot(gs[3:, 0])
+  plt.plot(runner.mon.ts, runner.mon.S)
+  plt.ylabel('S')
+  plt.xlim(*plot_duration)
+
+  plt.xlabel('Time [ms]')
+  plt.show()
 
 
 # %% [markdown]
@@ -247,19 +277,16 @@ def plot_V_S(times, hist_V, hist_S, duration):
 # depolarized spiking phase and a hyperpolarized silent phase.
 
 # %%
-times = bp.math.arange(0, 50 * 1e3, bp.math.get_dt())
-S = 0.172 * bp.math.ones(2)
-V = V_S - theta_S * bp.math.log(1/S - 1)
-n = 1 / (1 + bp.math.exp((V_n - V) / theta_n))
-
-hist_V, hist_S = [], []
-for i, t in enumerate(times):
-    V, n, S = int_V_n_S(V, n, S, t, lambda_=0.9, gc=0., I=0.)
-    hist_V.append(V)
-    hist_S.append(S)
+model = Model2()
+model.lambda_ = 0.9
+model.S[:] = 0.172
+model.V[:] = V_S - theta_S * bm.log(1 / model.S - 1)
+model.n[:] = 1 / (1 + bm.exp((V_n - model.V) / theta_n))
+model.gc[:] = 0.
+model.I[:] = 0.
 
 # %%
-plot_V_S(times, hist_V, hist_S, duration=(0, 50 * 1e3))
+run_and_plot2(model, 50 * 1e3)
 
 # %% [markdown]
 # When two identical bursters are coupled with $g_c = 0.06$ and
@@ -269,27 +296,26 @@ plot_V_S(times, hist_V, hist_S, duration=(0, 50 * 1e3))
 # with smaller amplitude, higher frequency, antiphase spikes.
 
 # %%
-times = bp.math.arange(0, 50 * 1e3, bp.math.get_dt())
-S = 0.172 * bp.math.ones(2)
-V = V_S - theta_S * bp.math.log(1/S - 1)
-n = 1 / (1 + bp.math.exp((V_n - V) / theta_n))
-
-hist_V, hist_S = [], []
-for i, t in enumerate(times):
-    V, n, S = int_V_n_S(V, n, S, t, lambda_=0.9, gc=0.06, I=0.)
-    hist_V.append(V)
-    hist_S.append(S)
+model = Model2(method='exp_auto')
+model.lambda_ = 0.9
+model.S[:] = 0.172
+model.V[:] = V_S - theta_S * bm.log(1 / model.S - 1)
+model.n[:] = 1 / (1 + bm.exp((V_n - model.V) / theta_n))
+model.gc[:] = 0.06
+model.I[:] = 0.
 
 # %%
-plot_V_S(times, hist_V, hist_S, duration=(0, 50 * 1e3))
+run_and_plot2(model, 50 * 1e3)
 
 # %%
-start,   end   = 0,                           4*1e3
-start_i, end_i = int(start/bp.math.get_dt()), int(end/bp.math.get_dt())
-plot_V_S(times[start_i: end_i], 
-         hist_V[start_i: end_i], 
-         hist_S[start_i: end_i], 
-         duration=(start, end))
+model = Model2(method='exp_auto')
+model.lambda_ = 0.9
+model.S[:] = 0.172
+model.V[:] = V_S - theta_S * bm.log(1 / model.S - 1)
+model.n[:] = 1 / (1 + bm.exp((V_n - model.V) / theta_n))
+model.gc[:] = 0.06
+model.I[:] = 0.
+run_and_plot2(model, 4 * 1e3)
 
 # %% [markdown]
 # ## Fig 4: weak coupling can convert spikers to bursters
@@ -301,20 +327,16 @@ plot_V_S(times[start_i: end_i],
 # to burst in-phase but with antiphase spikes, as in Fig. 3.
 
 # %%
-times = bp.math.arange(0, 50 * 1e3, bp.math.get_dt())
-S = 0.172 * bp.math.ones(2)
-V = V_S - theta_S * bp.math.log(1/S - 1)
-n = 1 / (1 + bp.math.exp((V_n - V) / theta_n))
-
-gc = bp.inputs.section_input(values=[0., 0.04],
-                             durations=[20 * 1e3, 30 * 1e3])
-Is = bp.inputs.section_input(values=[0., bp.math.array([0.3, 0.])],
-                             durations=[20 * 1e3, 30 * 1e3])
-hist_V, hist_S = [], []
-for i, t in enumerate(times):
-    V, n, S = int_V_n_S(V, n, S, t, lambda_=0.8, gc=gc[i], I=Is[i])
-    hist_V.append(V)
-    hist_S.append(S)
+model = Model2()
+model.lambda_ = 0.8
+model.S[:] = 0.172
+model.V[:] = V_S - theta_S * bm.log(1 / model.S - 1)
+model.n[:] = 1 / (1 + bm.exp((V_n - model.V) / theta_n))
+model.gc[:] = 0.06
+model.I[:] = 0.
 
 # %%
-plot_V_S(times, hist_V, hist_S, duration=(0, 50 * 1e3))
+gc = bp.inputs.section_input(values=[0., 0.04], durations=[20 * 1e3, 30 * 1e3])
+Is = bp.inputs.section_input(values=[0., bp.math.array([0.3, 0.])], durations=[20 * 1e3, 30 * 1e3])
+run_and_plot2(model, 50 * 1e3, inputs=[('gc', gc, 'iter', '='),
+                                       ('I', Is, 'iter', '=')])
