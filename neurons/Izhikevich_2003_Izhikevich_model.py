@@ -18,6 +18,9 @@
 # # *(Izhikevich, 2003)* Izhikevich Model
 
 # %% [markdown]
+# @Chaoming Wang @Xinyu Liu
+
+# %% [markdown]
 # ## 1. Model Overview
 
 # %% [markdown]

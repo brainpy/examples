@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: brainpy
 #     language: python
-#     name: python3
+#     name: brainpy
 # ---
 
 # %% [markdown]
@@ -48,16 +48,16 @@ class LIF(bp.NeuGroup):
     super(LIF, self).__init__(size, **kwargs)
     
     self.V = bm.Variable(bm.zeros(size))
-    self.spike = bm.Variable(bm.zeros(size))
+    self.spike = bm.Variable(bm.zeros(size, dtype=bool))
     self.integral = bp.odeint(self.derivative)
 
   def derivative(self, V, t):
     return (-V + inputs + 2 * bm.sin(2 * bm.pi * t / tau)) / tau
 
   def update(self, _t, _dt):
-    V = self.integral(self.V, _t)
-    self.spike.update(bm.asarray(V >= Vth, dtype=bm.float_))
-    self.V.update(bm.where(self.spike > 0., Vr, V))
+    V = self.integral(self.V, _t, _dt)
+    self.spike.value = V >= Vth
+    self.V.value = bm.where(self.spike > 0., Vr, V)
 
 
 # %%

@@ -12,8 +12,8 @@ to implement various neuron models or network models.
 
    neurons/Izhikevich_2003_Izhikevich_model.ipynb
    neurons/Romain_2004_LIF_phase_locking.ipynb
+   neurons/Gerstner_2005_AdExIF_model.ipynb
    neurons/Niebur_2009_GIF.ipynb
-   neurons/AdExIF_model.ipynb
 
 
 .. toctree::
