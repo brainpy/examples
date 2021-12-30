@@ -14,7 +14,7 @@
 # ---
 
 # %% [markdown]
-# # Hindmarsh Rose Model
+# # [3D] Hindmarsh Rose Model
 
 # %%
 import brainpy as bp

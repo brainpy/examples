@@ -122,5 +122,3 @@ analyze_net(num=2, gjw=0.1, Iext=bm.asarray([0., 0.1]))
 
 # %%
 analyze_net(num=4, gjw=0.1, Iext=bm.asarray([0., 0., 0., 0.6]))
-
-# %%

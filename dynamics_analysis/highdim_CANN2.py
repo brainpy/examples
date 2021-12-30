@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # %% [markdown]
-# # Continuous-attractor Neural Network
+# # [hign-dim] CANN
 # %%
 import matplotlib.pyplot as plt
 import numpy as np
@@ -157,7 +157,7 @@ def visualize_fixed_points(fps, plot_ids=(0,), xs=None):
 
 
 # %% [markdown]
-# ## Find fixed points
+# ## Find fixed points 1
 
 # %%
 model = CANN1D(num=512, k=0.1, A=30, a=0.5)
@@ -173,3 +173,33 @@ visualize_fixed_points(fps, plot_ids=(0, 10, 20, 30, 40, 50, 60), xs=model.x)
 
 # %%
 verify_fixed_point_stability(model, fps, num=6)
+
+# %% [markdown]
+# ## Find fixed points 2
+
+# %%
+model2 = CANN1D(num=512, k=0.1, A=10, a=0.5)
+
+# %%
+fps2 = find_fixed_points(model2, do_pca=True, do_animation=False, tolerance=1e-6)
+
+# %%
+visualize_fixed_points(fps2, plot_ids=(0, 10, 20, 30, 40, 50, 60), xs=model2.x)
+
+# %%
+verify_fixed_point_stability(model2, fps2, num=6)
+
+# %% [markdown]
+# ## Find fixed points 3
+
+# %%
+model3 = CANN1D(num=512, k=0.1, A=10, a=1.)
+
+# %%
+fps3 = find_fixed_points(model3, do_pca=True, do_animation=False, tolerance=1e-7)
+
+# %%
+visualize_fixed_points(fps3, plot_ids=(0, 10, 20, 30, 40, 50, 60), xs=model3.x)
+
+# %%
+verify_fixed_point_stability(model3, fps3, num=6)

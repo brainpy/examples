@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # %% [markdown]
-# # Decision Making Model
+# # [2D] Decision Making Model with ``SlowPointFinder``
 # %%
 import brainpy as bp
 import brainpy.math as bm

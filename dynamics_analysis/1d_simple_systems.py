@@ -8,20 +8,23 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: jax-cpu
+#     display_name: brainpy
 #     language: python
-#     name: jax-cpu
+#     name: brainpy
 # ---
 
 # %% [markdown]
-# # 1D system birfurcation
+# # [1D] Simple systems
 
 # %%
 import brainpy as bp
 
+bp.math.enable_x64()
+bp.math.set_platform('cpu')
+
 
 # %% [markdown]
-# ## Codimension1
+# ## Phase plane
 
 # %% [markdown]
 # Here we will show the birfurcation analysis of 1D system with dummy test neuronal model.
@@ -37,33 +40,27 @@ def int_x(x, t, Iext):
   return dx
 
 
-# %% [markdown]
-#
-
 # %%
-# analyzer = bp.symbolic.PhasePlane(int_x,
-#                                   target_vars={'x': [-10, 10]},
-#                                   pars_update={'Iext': 0.})
-# analyzer.plot_vector_field()
-# analyzer.plot_fixed_point(show=True)
-
-analyzer = bp.numeric.OldPhasePlane(int_x,
+analyzer = bp.analysis.PhasePlane1D(int_x,
                                     target_vars={'x': [-10, 10]},
                                     pars_update={'Iext': 0.})
 analyzer.plot_vector_field()
 analyzer.plot_fixed_point(show=True)
 
 # %% [markdown]
+# ## Codimension1
+
+# %% [markdown]
 # Then, create a bifurcation analyzer with ``bp.symbolic.Bifurcation``.
 
 # %%
-an = bp.symbolic.OldBifurcation(
+an = bp.analysis.Bifurcation1D(
   int_x,
   target_pars={'Iext': [-0.5, 0.5]},
   target_vars={"x": [-2, 2]},
-  numerical_resolution=0.0001)
-
-_ = an.plot_bifurcation(show=True)
+  resolutions=0.001
+)
+an.plot_bifurcation(show=True)
 
 
 # %% [markdown]
@@ -81,12 +78,11 @@ def int_x(x, t, mu, lambda_):
   return dxdt
 
 
-# %%
-# please install numba!=0.54.x, because they have bugs
-
-analyzer = bp.symbolic.OldBifurcation(
+# %% code_folding=[]
+analyzer = bp.analysis.Bifurcation1D(
   int_x,
-  target_pars={'mu': [-4, 4], 'lambda_': [-1, 4]},
+  target_pars={'lambda_': [-1, 4], 'mu': [-4, 4], },
   target_vars={'x': [-3, 3]},
-  numerical_resolution=0.1)
-_ = analyzer.plot_bifurcation(show=True)
+  resolutions=0.1
+)
+analyzer.plot_bifurcation(show=True)
