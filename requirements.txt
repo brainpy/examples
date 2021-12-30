@@ -1,5 +1,5 @@
-brain-py>=2.0.0
-brainmodels>=0.4.0
+# brain-py>=2.0.0
+# brainmodels>=0.4.0
 
 # docs
 pandoc
