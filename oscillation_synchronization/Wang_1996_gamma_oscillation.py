@@ -23,8 +23,6 @@ bp.math.set_dt(0.05)
 
 # %%
 class GABAa(bp.TwoEndConn):
-  target_backend = 'numpy'
-
   def __init__(self, pre, post, conn, delay=0., g_max=0.1, E=-75.,
                alpha=12., beta=0.1, T=1.0, T_duration=1.0, method='exp_auto'):
     super(GABAa, self).__init__(pre=pre, post=post, conn=conn)

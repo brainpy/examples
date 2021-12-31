@@ -74,11 +74,13 @@ batch_size = dataset.batch_size
 
 # %% [markdown]
 # Here we will define a continuous-time neural network but discretize it in time using the Euler method.
+#
 # \begin{align}
 #     \tau \frac{d\mathbf{r}}{dt} = -\mathbf{r}(t) + f(W_r \mathbf{r}(t) + W_x \mathbf{x}(t) + \mathbf{b}_r).
 # \end{align}
 #
 # This continuous-time system can then be discretized using the Euler method with a time step of $\Delta t$, 
+#
 # \begin{align}
 #     \mathbf{r}(t+\Delta t) = \mathbf{r}(t) + \Delta \mathbf{r} = \mathbf{r}(t) + \frac{\Delta t}{\tau}[-\mathbf{r}(t) + f(W_r \mathbf{r}(t) + W_x \mathbf{x}(t) + \mathbf{b}_r)].
 # \end{align}
@@ -275,18 +277,17 @@ fp_candidates = bm.vstack([activity_dict[i] for i in range(num_trial)])
 fp_candidates.shape
 
 # %%
-finder = bp.numeric.SlowPointFinder(
-  f_cell=f_cell,
-  f_type='F',
-  tol_opt=1e-5,
-  tol_speed=1e-5,
-  tol_unique=0.03,
-  tol_outlier=0.1,
+finder = bp.analysis.SlowPointFinder(f_cell=f_cell, f_type='discrete')
+finder.find_fps_with_gd_method(
+  candidates=fp_candidates,
+  tolerance=1e-5, num_batch=200,
   opt_setting=dict(method=bm.optimizers.Adam,
-                   lr=bm.optimizers.ExponentialDecay(0.01, 1, 0.9999)),
-  num_opt_batch=200, 
+                   lr=bm.optimizers.ExponentialDecay(0.01, 1, 0.9999))
 )
-fixed_points, _, _, _ = finder.find_fixed_points(candidates=fp_candidates)
+finder.filter_loss(tolerance=1e-5)
+finder.keep_unique(tolerance=0.03)
+finder.exclude_outliers(0.1)
+fixed_points = finder.fixed_points
 
 # %% [markdown]
 # ## Visualize the found approximate fixed points.
