@@ -26,120 +26,58 @@
 #
 # - Vogels, T. P. and Abbott, L. F. (2005), Signal propagation and logic gating in networks of integrate-and-fire neurons., J. Neurosci., 25, 46, 10786–95
 #
+#
+#
 # Authors:
 #
-# - Chaoming Wang (chao.brain@qq.com)
+# - [Chaoming Wang](https://github.com/chaoming0625)
+#
 
 # %%
 import brainpy as bp
-import brainmodels
 
-# %% [markdown]
-# ## Parameters
-
-# %%
-# Parameters
-num_exc = 3200
-num_inh = 800
-taum = 20
-taue = 5
-taui = 10
-Vt = -50
-Vr = -60
-El = -60
-Erev_exc = 0.
-Erev_inh = -80.
-Ib = 20.
-we = 0.6  # excitatory synaptic weight (voltage)
-wi = 6.7  # inhibitory synaptic weight
-ref = 5.0
-
-
-# %% [markdown]
-# ## Implementation 2
-
-# %%
-class LIF(bp.NeuGroup):
-  target_backend = 'numpy'
-
-  def __init__(self, size, **kwargs):
-    super(LIF, self).__init__(size=size, **kwargs)
-
-    self.V = bp.math.Variable(bp.math.ones(size) * Vr)
-    self.Isyn = bp.math.Variable(bp.math.zeros(size))
-    self.t_spike = bp.math.Variable(-1e7 * bp.math.ones(size))
-    self.spike = bp.math.Variable(bp.math.zeros(size, dtype=bool))
-
-    self.integral = bp.odeint(self.derivative)
-
-  def derivative(self, V, t, Isyn):
-    return (Isyn + (El - V) + Ib) / taum
-
-  def update(self, _t, _dt):
-    for i in range(self.num):
-      self.spike[i] = 0.
-      if (_t - self.t_spike[i]) > ref:
-        V = self.integral(self.V[i], _t, self.Isyn[i])
-        self.spike[i] = 0.
-        if V >= Vt:
-          self.V[i] = Vr
-          self.spike[i] = 1.
-          self.t_spike[i] = _t
-        else:
-          self.V[i] = V
-    self.Isyn[:] = 0.
+bp.math.set_platform('cpu')
 
 
 # %%
-class Syn(bp.TwoEndConn):
-  target_backend = 'numpy'
+class EINet(bp.Network):
+  def __init__(self, scale=1.0, method='exp_auto'):
+    # network size
+    num_exc = int(3200 * scale)
+    num_inh = int(800 * scale)
 
-  def __init__(self, pre, post, conn, E, w, tau, **kwargs):
-    super(Syn, self).__init__(pre, post, conn=conn, **kwargs)
+    # neurons
+    pars = dict(V_rest=-60., V_th=-50., V_reset=-60., tau=20., tau_ref=5.)
+    E = bp.models.LIF(num_exc, **pars, method=method)
+    I = bp.models.LIF(num_inh, **pars, method=method)
+    E.V[:] = bp.math.random.randn(num_exc) * 2 - 55.
+    I.V[:] = bp.math.random.randn(num_inh) * 2 - 55.
 
-    # parameters
-    self.E = E
-    self.w = w
-    self.tau = tau
+    # synapses
+    we = 0.6 / scale  # excitatory synaptic weight (voltage)
+    wi = 6.7 / scale  # inhibitory synaptic weight
+    E2E = bp.models.ExpCOBA(E, E, bp.conn.FixedProb(prob=0.02),
+                            E=0., g_max=we, tau=5., method=method)
+    E2I = bp.models.ExpCOBA(E, I, bp.conn.FixedProb(prob=0.02),
+                            E=0., g_max=we, tau=5., method=method)
+    I2E = bp.models.ExpCOBA(I, E, bp.conn.FixedProb(prob=0.02),
+                            E=-80., g_max=wi, tau=10., method=method)
+    I2I = bp.models.ExpCOBA(I, I, bp.conn.FixedProb(prob=0.02),
+                            E=-80., g_max=wi, tau=10., method=method)
 
-    self.pre2post = self.conn.requires('pre2post')  # connections
-    self.g = bp.math.Variable(bp.math.zeros(post.num))  # variables
-
-    self.integral = bp.odeint(self.derivative)
-
-  def derivative(self, g, t):
-    dg = - g / self.tau
-    return dg
-
-  def update(self, _t, _dt):
-    self.g[:] = self.integral(self.g, _t)
-    for pre_id in range(self.pre.num):
-      if self.pre.spike[pre_id]:
-        post_ids = self.pre2post[pre_id]
-        for i in post_ids:
-          self.g[i] += self.w
-    self.post.Isyn += self.g * (self.E - self.post.V)
+    super(EINet, self).__init__(E2E, E2I, I2E, I2I, E=E, I=I)
 
 
 # %%
-E = LIF(num_exc, monitors=['spike'])
-I = LIF(num_inh)
-E.V[:] = bp.math.random.randn(num_exc) * 5. - 55.
-I.V[:] = bp.math.random.randn(num_inh) * 5. - 55.
+# network
+net = EINet()
 
 # %%
-E2E = Syn(pre=E, post=E, conn=bp.connect.FixedProb(prob=0.02),
-          E=Erev_exc, w=we, tau=taue)
-E2I = Syn(pre=E, post=I, conn=bp.connect.FixedProb(prob=0.02),
-          E=Erev_exc, w=we, tau=taue)
-I2E = Syn(pre=I, post=E, conn=bp.connect.FixedProb(prob=0.02),
-          E=Erev_inh, w=wi, tau=taui)
-I2I = Syn(pre=I, post=I, conn=bp.connect.FixedProb(prob=0.02),
-          E=Erev_inh, w=wi, tau=taui)
-net = bp.Network(E, I, E2E, E2I, I2I, I2E)
-net = bp.math.jit(net)
+# simulation
+runner = bp.StructRunner(net,
+                         monitors=['E.spike'],
+                         inputs=[('E.input', 20.), ('I.input', 20.)])
+t = runner.run(100.)
 
 # %%
-net.run(100., report=0.1)
-bp.visualize.raster_plot(E.mon.ts, E.mon.spike, show=True)
-
+bp.visualize.raster_plot(runner.mon.ts, runner.mon['E.spike'], show=True)

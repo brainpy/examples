@@ -9,9 +9,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: brainpy
 #     language: python
-#     name: python3
+#     name: brainpy
 # ---
 
 # %% [markdown]
@@ -22,23 +22,17 @@
 #
 # - Mi, Yuanyuan, Mikhail Katkov, and Misha Tsodyks. "Synaptic correlates of working memory capacity." Neuron 93.2 (2017): 323-330.
 #
-#
-# Author:
-#
-# - Chaoming Wang (chao.brain@qq.com)
-
-
-# %%
-import brainpy as bp
-import brainpy.math as bm
 
 # %%
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 
 # %%
-dt = 0.0001  # [s]
-bp.math.set_dt(dt=dt)
+import brainpy as bp
+import brainpy.math as bm
+
+bm.enable_x64()
+bm.set_platform('cpu')
 
 # %%
 alpha = 1.5
@@ -69,42 +63,41 @@ duration = 2.500  # [s]
 # %%
 # the excitatory cluster model and the inhibitory pool model
 
-class WorkingMemoryModel(bp.NeuGroup):
-  def __init__(self, size, **kwargs):
-    super(WorkingMemoryModel, self).__init__(size, **kwargs)
+class WorkingMemoryModel(bp.DynamicalSystem):
+  def __init__(self, **kwargs):
+    super(WorkingMemoryModel, self).__init__(**kwargs)
 
-    self.hi = bm.Variable(bm.asarray([0.]))
+    # variables
     self.u = bm.Variable(bm.ones(cluster_num) * U)
     self.x = bm.Variable(bm.ones(cluster_num))
     self.h = bm.Variable(bm.zeros(cluster_num))
-    self.input = bm.Variable(bm.zeros(cluster_num))
-    self.inh_r = bm.Variable(self.log(self.hi))
     self.r = bm.Variable(self.log(self.h))
-
-    self.integral = bp.odeint(self.derivative)
-
-  def derivative(self, u, x, h, hi, t, r, r_inh, Iext):
-    du = (U - u) / tau_f + U * (1 - u) * r
-    dx = (1 - x) / tau_d - u * x * r
-    dh = (-h + J_EE * u * x * r - J_EI * r_inh + Iext + Ib) / tau
-    dhi = (-hi + J_IE * bm.sum(r) + Iinh) / tau_I
-    return du, dx, dh, dhi
+    self.input = bm.Variable(bm.zeros(cluster_num))
+    self.inh_h = bm.Variable(bm.zeros(1))
+    self.inh_r = bm.Variable(self.log(self.inh_h))
 
   def log(self, h):
-    return alpha * bm.log(1. + bm.exp(h / alpha))
+    # return alpha * bm.log(1. + bm.exp(h / alpha))
+    return alpha * bm.log1p(bm.exp(h / alpha))
 
   def update(self, _t, _dt):
-    self.u[:], self.x[:], self.h[:], self.hi[:] = self.integral(
-      self.u, self.x, self.h, self.hi, _t,
-      self.r, self.inh_r, self.input)
+    uxr = self.u * self.x * self.r
+    du = (U - self.u) / tau_f + U * (1 - self.u) * self.r
+    dx = (1 - self.x) / tau_d - uxr
+    dh = (-self.h + J_EE * uxr - J_EI * self.inh_r + self.input + Ib) / tau
+    dhi = (-self.inh_h + J_IE * bm.sum(self.r) + Iinh) / tau_I
+    self.u += du * _dt
+    self.x += dx * _dt
+    self.h += dh * _dt
+    self.inh_h += dhi * _dt
     self.r[:] = self.log(self.h)
-    self.inh_r[:] = self.log(self.hi)
+    self.inh_r[:] = self.log(self.inh_h)
     self.input[:] = 0.
 
 
 # %%
+dt = 0.0001  # [s]
 # the external input
-
 I_inputs = bm.zeros((int(duration / dt), cluster_num))
 for i in range(stimulus_num):
   t_start = (Ts_interval + Ts_duration) * i + Ts_interval
@@ -113,42 +106,44 @@ for i in range(stimulus_num):
   I_inputs[idx_start: idx_end, i] = Iext_train
 
 # %%
-# model.monwork running
-
-model = WorkingMemoryModel(cluster_num, monitors=['u', 'x', 'r', 'h'])
-model.run(duration, inputs=['input', I_inputs, 'iter'])
+# running
+runner = bp.StructRunner(WorkingMemoryModel(),
+                         inputs=['input', I_inputs, 'iter'],
+                         monitors=['u', 'x', 'r', 'h'],
+                         dt=dt)
+runner(duration)
 
 # %%
 # visualization
-
+runner.mon.numpy()
 colors = list(dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS).keys())
 
 fig, gs = bp.visualize.get_figure(5, 1, 2, 12)
 fig.add_subplot(gs[0, 0])
 for i in range(stimulus_num):
-  plt.plot(model.mon.ts, model.mon.r[:, i], label='Cluster-{}'.format(i))
+  plt.plot(runner.mon.ts, runner.mon.r[:, i], label='Cluster-{}'.format(i))
 plt.ylabel("$r (Hz)$")
 plt.legend(loc='right')
 
 fig.add_subplot(gs[1, 0])
-hist_Jux = J_EE * model.mon.u * model.mon.x
+hist_Jux = J_EE * runner.mon.u * runner.mon.x
 for i in range(stimulus_num):
-  plt.plot(model.mon.ts, hist_Jux[:, i])
+  plt.plot(runner.mon.ts, hist_Jux[:, i])
 plt.ylabel("$J_{EE}ux$")
 
 fig.add_subplot(gs[2, 0])
 for i in range(stimulus_num):
-  plt.plot(model.mon.ts, model.mon.u[:, i], colors[i])
+  plt.plot(runner.mon.ts, runner.mon.u[:, i], colors[i])
 plt.ylabel('u')
 
 fig.add_subplot(gs[3, 0])
 for i in range(stimulus_num):
-  plt.plot(model.mon.ts, model.mon.x[:, i], colors[i])
+  plt.plot(runner.mon.ts, runner.mon.x[:, i], colors[i])
 plt.ylabel('x')
 
 fig.add_subplot(gs[4, 0])
 for i in range(stimulus_num):
-  plt.plot(model.mon.ts, model.mon.r[:, i], colors[i])
+  plt.plot(runner.mon.ts, runner.mon.r[:, i], colors[i])
 plt.ylabel('h')
 plt.xlabel('time [s]')
 

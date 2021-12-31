@@ -27,13 +27,17 @@
 # - Vogels, T. P. and Abbott, L. F. (2005), Signal propagation and logic gating in networks of integrate-and-fire neurons., J. Neurosci., 25, 46, 10786–95
 #
 #
+#
+#
 # Authors:
 #
-# - Chaoming Wang (chao.brain@qq.com)
+# - [Chaoming Wang](https://github.com/chaoming0625)
 #
 # %%
 import brainpy as bp
-import brainmodels as bms
+import brainpy.math as bm
+
+bp.math.set_platform('cpu')
 
 # %% [markdown]
 # ## Parameters
@@ -72,90 +76,107 @@ wi = 67.  # inhibitory synaptic conductance [nS]
 
 # %%
 class HH(bp.NeuGroup):
-  def __init__(self, size, **kwargs):
-    super(HH, self).__init__(size, **kwargs)
+  def __init__(self, size, method='exp_auto'):
+    super(HH, self).__init__(size)
 
-    self.V = bp.math.Variable(El + (bp.math.random.randn(self.num) * 5 - 5))
-    self.m = bp.math.Variable(bp.math.zeros(self.num))
-    self.n = bp.math.Variable(bp.math.zeros(self.num))
-    self.h = bp.math.Variable(bp.math.zeros(self.num))
-    self.spike = bp.math.Variable(bp.math.zeros(self.num, dtype=bool))
-    self.Isyn = bp.math.Variable(bp.math.zeros(size))
+    # variables
+    self.V = bm.Variable(El + (bm.random.randn(self.num) * 5 - 5))
+    self.m = bm.Variable(bm.zeros(self.num))
+    self.n = bm.Variable(bm.zeros(self.num))
+    self.h = bm.Variable(bm.zeros(self.num))
+    self.spike = bm.Variable(bm.zeros(self.num, dtype=bool))
+    self.input = bm.Variable(bm.zeros(size))
 
-    self.integral = bp.odeint(self.derivative, method='exponential_euler')
+    def dV(V, t, m, h, n, Isyn):
+      gna = g_Na * (m * m * m) * h
+      gkd = g_Kd * (n * n * n * n)
+      dVdt = (-gl * (V - El) - gna * (V - ENa) - gkd * (V - EK) + Isyn) / Cm
+      return dVdt
 
-  def derivative(self, V, m, h, n, t, Isyn):
-    g_na = g_Na * (m * m * m) * h
-    g_kd = g_Kd * (n * n * n * n)
-    dVdt = (-gl * (V - El) - g_na * (V - ENa) - g_kd * (V - EK) + Isyn) / Cm
+    def dm(m, t, V, ):
+      m_alpha = 0.32 * (13 - V + VT) / (bm.exp((13 - V + VT) / 4) - 1.)
+      m_beta = 0.28 * (V - VT - 40) / (bm.exp((V - VT - 40) / 5) - 1)
+      dmdt = (m_alpha * (1 - m) - m_beta * m)
+      return dmdt
 
-    a = 13 - V + VT
-    b = V - VT - 40
-    m_alpha = 0.32 * a / (bp.math.exp(a / 4) - 1.)
-    m_beta = 0.28 * b / (bp.math.exp(b / 5) - 1)
-    dmdt = (m_alpha * (1 - m) - m_beta * m)
+    def dh(h, t, V):
+      h_alpha = 0.128 * bm.exp((17 - V + VT) / 18)
+      h_beta = 4. / (1 + bm.exp(-(V - VT - 40) / 5))
+      dhdt = (h_alpha * (1 - h) - h_beta * h)
+      return dhdt
 
-    h_alpha = 0.128 * bp.math.exp((17 - V + VT) / 18)
-    h_beta = 4. / (1 + bp.math.exp(-(V - VT - 40) / 5))
-    dhdt = (h_alpha * (1 - h) - h_beta * h)
+    def dn(n, t, V):
+      c = 15 - V + VT
+      n_alpha = 0.032 * c / (bm.exp(c / 5) - 1.)
+      n_beta = .5 * bm.exp((10 - V + VT) / 40)
+      dndt = (n_alpha * (1 - n) - n_beta * n)
+      return dndt
 
-    c = 15 - V + VT
-    n_alpha = 0.032 * c / (bp.math.exp(c / 5) - 1.)
-    n_beta = .5 * bp.math.exp((10 - V + VT) / 40)
-    dndt = (n_alpha * (1 - n) - n_beta * n)
-
-    return dVdt, dmdt, dhdt, dndt
+    # functions
+    self.integral = bp.odeint(bp.JointEq([dV, dm, dh, dn]), method=method)
 
   def update(self, _t, _dt):
-    V, self.m[:], self.h[:], self.n[:] = self.integral(self.V, self.m, self.h, self.n, _t, self.Isyn)
-    self.spike[:] = bp.math.logical_and(self.V < V_th, V >= V_th)
-    self.V[:] = V
-    self.Isyn[:] = 0.
-
+    V, m, h, n = self.integral(self.V, self.m, self.h, self.n, _t, Isyn=self.input, dt=_dt)
+    self.spike.value = bm.logical_and(self.V < V_th, V >= V_th)
+    self.m.value = m
+    self.h.value = h
+    self.n.value = n
+    self.V.value = V
+    self.input[:] = 0.
 
 # %%
-class Syn(bp.TwoEndConn):
-  target_backend = 'numpy'
-
-  def __init__(self, pre, post, conn, E, w, tau, **kwargs):
-    super(Syn, self).__init__(pre, post, conn=conn, **kwargs)
+class ExpCOBA(bp.TwoEndConn):
+  def __init__(self, pre, post, conn, g_max=1., delay=0., tau=8.0, E=0.,
+               method='exp_auto'):
+    super(ExpCOBA, self).__init__(pre=pre, post=post, conn=conn)
+    self.check_pre_attrs('spike')
+    self.check_post_attrs('input', 'V')
 
     # parameters
     self.E = E
-    self.w = w
     self.tau = tau
+    self.delay = delay
+    self.g_max = g_max
+    self.pre2post = self.conn.require('pre2post')
 
-    self.pre2post = self.conn.requires('pre2post')  # connections
-    self.g = bp.math.Variable(bp.math.zeros(post.num))  # variables
+    # variables
+    self.g = bm.Variable(bm.zeros(self.post.num))
 
-    self.integral = bp.odeint(self.derivative, method='exponential_euler')
-
-  def derivative(self, g, t):
-    dg = - g / self.tau
-    return dg
+    # function
+    self.integral = bp.odeint(lambda g, t: -g / self.tau, method=method)
 
   def update(self, _t, _dt):
-    self.g[:] = self.integral(self.g, _t)
-    for pre_id in range(self.pre.num):
-      if self.pre.spike[pre_id]:
-        post_ids = self.pre2post[pre_id]
-        for i in post_ids:
-          self.g[i] += self.w
-    self.post.Isyn += self.g * (self.E - self.post.V)
+    self.g.value = self.integral(self.g, _t, dt=_dt)
+    post_sps = bm.pre2post_event_sum(self.pre.spike, self.pre2post, self.post.num, self.g_max)
+    self.g.value += post_sps
+    self.post.input += self.g * (self.E - self.post.V)
 
 
 # %%
-E = HH(num_exc, monitors=['spike'])
-I = HH(num_inh)
+class COBAHH(bp.Network):
+  def __init__(self, scale=1., method='exp_auto'):
+    num_exc = int(3200 * scale)
+    num_inh = int(800 * scale)
+    E = HH(num_exc, method=method)
+    I = HH(num_inh, method=method)
+    E2E = ExpCOBA(pre=E, post=E, conn=bp.conn.FixedProb(prob=0.02),
+                  E=Ee, g_max=we / scale, tau=taue, method=method)
+    E2I = ExpCOBA(pre=E, post=I, conn=bp.conn.FixedProb(prob=0.02),
+                  E=Ee, g_max=we / scale, tau=taue, method=method)
+    I2E = ExpCOBA(pre=I, post=E, conn=bp.conn.FixedProb(prob=0.02),
+                  E=Ei, g_max=wi / scale, tau=taui, method=method)
+    I2I = ExpCOBA(pre=I, post=I, conn=bp.conn.FixedProb(prob=0.02),
+                  E=Ei, g_max=wi / scale, tau=taui, method=method)
 
-E2E = Syn(pre=E, post=E, conn=bp.connect.FixedProb(prob=0.02), E=Ee, w=we, tau=taue)
-E2I = Syn(pre=E, post=I, conn=bp.connect.FixedProb(prob=0.02), E=Ee, w=we, tau=taue)
-I2E = Syn(pre=I, post=E, conn=bp.connect.FixedProb(prob=0.02), E=Ei, w=wi, tau=taui)
-I2I = Syn(pre=I, post=I, conn=bp.connect.FixedProb(prob=0.02), E=Ei, w=wi, tau=taui)
+    super(COBAHH, self).__init__(E2E, E2I, I2I, I2E, E=E, I=I)
 
-net = bp.Network(E, I, E2E, E2I, I2I, I2E)
-net = bp.math.jit(net)
 
 # %%
-net.run(100., report=0.1)
-bp.visualize.raster_plot(E.mon.ts, E.mon.spike, show=True)
+net = COBAHH()
+
+# %%
+runner = bp.StructRunner(net, monitors=['E.spike'])
+t = runner.run(100.)
+
+# %%
+bp.visualize.raster_plot(runner.mon.ts, runner.mon['E.spike'], show=True)

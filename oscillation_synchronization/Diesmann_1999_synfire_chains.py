@@ -21,11 +21,12 @@
 #
 # - Diesmann, Markus, Marc-Oliver Gewaltig, and Ad Aertsen. "Stable propagation of synchronous spiking in cortical neural networks." Nature 402.6761 (1999): 529-533.
 #
-# Author:
-#
-# - Chaoming Wang (chao.brain@qq.com)
+# Author: [Chaoming Wang](mailto:chao.brain@qq.com)
 # %%
 import brainpy as bp
+import brainpy.math as bm
+
+bp.math.set_platform('cpu')
 
 # %%
 duration = 100.  # ms
@@ -57,45 +58,29 @@ class Groups(bp.NeuGroup):
   def __init__(self, size, **kwargs):
     super(Groups, self).__init__(size, **kwargs)
 
-    self.V = bp.math.Variable(Vr + bp.math.random.random(self.num) * (Vt - Vr))
-    self.x = bp.math.Variable(bp.math.zeros(self.num))
-    self.y = bp.math.Variable(bp.math.zeros(self.num))
-    self.spike = bp.math.Variable(bp.math.zeros(self.num))
-    self.not_ref = bp.math.Variable(bp.math.ones(self.num))
-    self.t_last_spike = bp.math.Variable(bp.math.ones(self.num) * -1e7)
+    self.V = bm.Variable(Vr + bm.random.random(self.num) * (Vt - Vr))
+    self.x = bm.Variable(bm.zeros(self.num))
+    self.y = bm.Variable(bm.zeros(self.num))
+    self.spike = bm.Variable(bm.zeros(self.num, dtype=bool))
+    self.refractory = bm.Variable(bm.zeros(self.num, dtype=bool))
+    self.t_last_spike = bm.Variable(bm.ones(self.num) * -1e7)
 
-  @staticmethod
-  @bp.odeint
-  def int_V(V, t, x):
-    return (-(V - Vr) + x) / tau_m
-
-  @staticmethod
-  @bp.odeint
-  def int_x(x, t, y):
-    return (-x + y) / tau_psp
-
-  @staticmethod
-  @bp.sdeint(g=lambda y, t: noise)
-  def int_y(y, t):
-    df = -y / tau_psp + 25.27
-    return df
+    # integral functions
+    self.int_V = bp.odeint(lambda V, t, x: (-(V - Vr) + x) / tau_m)
+    self.int_x = bp.odeint(lambda x, t, y: (-x + y) / tau_psp)
+    self.int_y = bp.sdeint(f=lambda y, t: -y / tau_psp + 25.27,
+                           g=lambda y, t: noise)
 
   def update(self, _t, _dt):
-    self.x[:] = self.int_x(self.x, _t, self.y)
-    self.y[:] = self.int_y(self.y, _t)
-
-    for i in range(self.num):
-      self.spike[i] = False
-      self.not_ref[i] = 0.
-      if _t - self.t_last_spike[i] >= tau_ref:
-        V = self.int_V(self.V[i], _t, self.x[i])
-        if V > Vt:
-          self.spike[i] = True
-          self.t_last_spike[i] = _t
-          self.V[i] = Vr
-        else:
-          self.V[i] = V
-          self.not_ref[i] = 1.
+    self.x[:] = self.int_x(self.x, _t, self.y, _dt)
+    self.y[:] = self.int_y(self.y, _t, _dt)
+    in_ref = (_t - self.t_last_spike) < tau_ref
+    V = self.int_V(self.V, _t, self.x, _dt)
+    V = bm.where(in_ref, self.V, V)
+    self.spike.value = V >= Vt
+    self.t_last_spike.value = bm.where(self.spike, _t, self.t_last_spike)
+    self.V.value = bm.where(self.spike, Vr, V)
+    self.refractory.value = bm.logical_or(in_ref, self.spike)
 
 
 # %%
@@ -109,23 +94,19 @@ class SynBetweenGroups(bp.TwoEndConn):
     self.group = group
     self.ext = ext_group
 
-    # connections
-    self.mat1 = bp.math.ones((ext_group.num, group_size))
-    self.mat2 = bp.math.ones((group_size, group_size))
-
     # variables
-    self.g = self.register_constant_delay('g', size=group.num, delay=delay)
+    self.g = bp.ConstantDelay(size=group.num, delay=delay)
 
   def update(self, _t, _dt):
     # synapse model between external and group 1
-    g = bp.math.zeros(self.group.num)
-    g[:group_size] = weight * bp.math.dot(self.ext.spike, self.mat1)
+    g = bm.zeros(self.group.num)
+    g[:group_size] = weight * self.ext.spike.sum()
     # feed-forward connection
     for i in range(1, n_groups):
       s1 = (i - 1) * group_size
       s2 = i * group_size
       s3 = (i + 1) * group_size
-      g[s2: s3] = weight * bp.math.dot(self.group.spike[s1: s2], self.mat2)
+      g[s2: s3] = weight * self.group.spike[s1: s2].sum()
     # delay push
     self.g.push(g)
     # delay pull
@@ -137,8 +118,6 @@ class SynBetweenGroups(bp.TwoEndConn):
 # ----------------
 
 class SpikeTimeInput(bp.NeuGroup):
-  target_backend = 'numpy'
-
   def __init__(self, size, times, indices, need_sort=1., **kwargs):
     super(SpikeTimeInput, self).__init__(size=size, **kwargs)
 
@@ -147,21 +126,28 @@ class SpikeTimeInput(bp.NeuGroup):
                        f'However, we got {len(indices)} != {len(times)}.')
 
     # data about times and indices
-    self.idx = bp.math.Variable([0])
-    self.times = bp.math.asarray(times, dtype=bp.math.float_)
-    self.indices = bp.math.asarray(indices, dtype=bp.math.int_)
+    self.idx = bm.Variable([0])
+    self.times = bm.Variable(times)
+    self.indices = bm.Variable(indices)
     self.num_times = len(times)
     if need_sort:
-      sort_idx = bp.math.argsort(times)
-      self.indices = self.indices[sort_idx]
-    self.spike = bp.math.Variable(bp.math.zeros(self.num, dtype=bool))
+      sort_idx = bm.argsort(times)
+      self.indices.value = self.indices[sort_idx]
+      self.times.value = self.times[sort_idx]
+    self.spike = bm.Variable(bm.zeros(self.num, dtype=bool))
 
   def update(self, _t, _dt):
     self.spike[:] = False
-    while self.idx[0] < self.num_times and _t >= self.times[self.idx[0]]:
-      idx = self.indices[self.idx[0]]
-      self.spike[idx] = True
-      self.idx[:] += 1
+
+    def cond_fun(_t):
+      return bm.logical_and(self.idx[0] < self.num_times,  _t >= self.times[self.idx[0]])
+
+    def body_fun(_t):
+      self.spike[self.indices[self.idx[0]]] = True
+      self.idx[0] += 1
+
+    f = bm.make_while(cond_fun, body_fun, dyn_vars=self.vars())
+    f(_t)
 
 
 # %%
@@ -169,15 +155,22 @@ class SpikeTimeInput(bp.NeuGroup):
 # ---------------
 
 def run_network(spike_num=48):
-  times = bp.math.random.randn(spike_num) * spike_sigma + 20
-  ext_group = SpikeTimeInput(spike_num, times=times, indices=bp.math.arange(spike_num))
-  group = Groups(size=n_groups * group_size, monitors=['spike'])
+  bm.random.seed(1)
+  times = bm.random.randn(spike_num) * spike_sigma + 20
+  ext_group = SpikeTimeInput(spike_num, times=times, indices=bm.arange(spike_num))
+  group = Groups(size=n_groups * group_size)
   syn_conn = SynBetweenGroups(group, ext_group)
+  net = bp.Network(ext_group=ext_group, syn_conn=syn_conn, group=group)
 
-  net = bp.Network(group, ext_group, syn_conn)
-  net.run(duration, report=0.2)
+  # simulation
+  runner = bp.StructRunner(net,
+                           monitors=['group.spike'],
+                           dyn_vars=net.vars() + dict(rng=bm.random.DEFAULT))
+  runner.run(duration)
 
-  bp.visualize.raster_plot(group.mon.ts, group.mon.spike, xlim=(0, duration), show=True)
+  # visualization
+  bp.visualize.raster_plot(runner.mon.ts, runner.mon['group.spike'],
+                           xlim=(0, duration), show=True)
 
 
 # %% [markdown]

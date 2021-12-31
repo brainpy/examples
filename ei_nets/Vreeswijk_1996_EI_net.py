@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.5
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: brainpy
 #     language: python
-#     name: python3
+#     name: brainpy
 # ---
 
 # %% [markdown]
@@ -31,6 +31,9 @@
 
 # %%
 import brainpy as bp
+import brainpy.math as bm
+
+bm.set_platform('cpu')
 
 # %% [markdown]
 # Dynamic of membrane potential is given as:
@@ -51,78 +54,8 @@ import brainpy as bp
 # %% [markdown]
 # We can see from the dynamic that network is based on leaky Integrate-and-Fire neurons, and we can just use `get_LIF` from `bpmodels.neurons` to get this model. 
 
-# %%
-tau = 10.
-V_rest = -52.
-V_reset = -60.
-V_th = -50.
-Ib = 3.
-
-
-# %%
-
-class LIF(bp.NeuGroup):
-  target_backend = 'numpy'
-
-  def __init__(self, size, **kwargs):
-    super(LIF, self).__init__(size, **kwargs)
-    
-    self.V = bp.math.Variable(bp.math.zeros(size))
-    self.spike = bp.math.Variable(bp.math.zeros(size))
-    self.input = bp.math.Variable(bp.math.zeros(size))
-
-    self.integral = bp.odeint(self.derivative)
-
-  def derivative(self, V, t, Isyn):
-    return (-V + V_rest + Isyn) / tau
-
-  def update(self, _t, _dt):
-    for i in range(self.num):
-      V = self.integral(self.V[i], _t, self.input[i])
-      if V >= V_th:
-        self.spike[i] = 1.
-        V = V_reset
-      else:
-        self.spike[i] = 0.
-      self.V[i] = V
-      self.input[i] = Ib
-
-
 # %% [markdown]
 # The function of $I_i^{net}(t)$ is actually a synase with single exponential decay, we can also get it by using `get_exponential`.
-
-# %%
-tau_decay = 2.
-
-
-# %%
-class Syn(bp.TwoEndConn):
-  target_backend = 'numpy'
-
-  def __init__(self, pre, post, conn, g_max, **kwargs):
-    super(Syn, self).__init__(pre, post, conn=conn, **kwargs)
-
-    # parameters
-    self.g_max = g_max
-
-    # connection
-    self.pre2post = self.conn.requires('pre2post')
-
-    # variables
-    self.s = bp.math.Variable(bp.math.zeros(post.num))
-
-    self.integral = bp.odeint(self.derivative)
-
-  def derivative(self, s, t):
-    return - s / tau_decay
-
-  def update(self, _t, _dt):
-    self.s[:] = self.integral(self.s, _t)
-    for pre_i, spike in enumerate(self.pre.spike):
-      if spike:
-        for post_i in self.pre2post[pre_i]:
-          self.s[post_i] += 1.
-    self.post.input += self.g_max * self.s
 
 
 # %% [markdown]
@@ -131,29 +64,42 @@ class Syn(bp.TwoEndConn):
 # %% [markdown]
 # Let's create a neuron group with $N_E$ excitatory neurons and $N_I$ inbibitory neurons. Use `conn=bp.connect.FixedProb(p)` to implement the random and sparse connections.
 
+
+# %%
+class EINet(bp.Network):
+  def __init__(self, num_exc, num_inh, prob, JE, JI):
+    # neurons
+    pars = dict(V_rest=-52., V_th=-50., V_reset=-60., tau=10., tau_ref=0.)
+    E = bp.models.LIF(num_exc, **pars)
+    I = bp.models.LIF(num_inh, **pars)
+    E.V[:] = bm.random.random(num_exc) * (E.V_th - E.V_rest) + E.V_rest
+    I.V[:] = bm.random.random(num_inh) * (E.V_th - E.V_rest) + E.V_rest
+
+    # synapses
+    E2E = bp.models.ExpCUBA(E, E, bp.conn.FixedProb(prob), g_max=JE, tau=2.)
+    E2I = bp.models.ExpCUBA(E, I, bp.conn.FixedProb(prob), g_max=JE, tau=2.)
+    I2E = bp.models.ExpCUBA(I, E, bp.conn.FixedProb(prob), g_max=JI, tau=2.)
+    I2I = bp.models.ExpCUBA(I, I, bp.conn.FixedProb(prob), g_max=JI, tau=2.)
+
+    super(EINet, self).__init__(E2E, E2I, I2E, I2I, E=E, I=I)
+
+
 # %%
 num_exc = 500
 num_inh = 500
 prob = 0.1
 
+Ib = 3.
 JE = 1 / bp.math.sqrt(prob * num_exc)
-JI = 1 / bp.math.sqrt(prob * num_inh)
+JI = -1 / bp.math.sqrt(prob * num_inh)
 
-E = LIF(num_exc, monitors=['spike'])
-E.V[:] = bp.math.random.random(num_exc) * (V_th - V_rest) + V_rest
+# %%
+net = EINet(num_exc, num_inh, prob=prob, JE=JE, JI=JI)
 
-I = LIF(num_inh, monitors=['spike'])
-I.V[:] = bp.math.random.random(num_inh) * (V_th - V_rest) + V_rest
-
-E2E = Syn(E, E, conn=bp.connect.FixedProb(prob=prob), g_max=JE)
-E2I = Syn(E, I, conn=bp.connect.FixedProb(prob=prob), g_max=JE)
-I2E = Syn(I, E, conn=bp.connect.FixedProb(prob=prob), g_max=-JI)
-I2I = Syn(I, I, conn=bp.connect.FixedProb(prob=prob), g_max=-JI)
-
-net = bp.Network(E, I, E2E, E2I, I2E, I2I)
-net = bp.math.jit(net)
-
-net.run(duration=1000., report=0.1)
+runner = bp.StructRunner(net,
+                         monitors=['E.spike'],
+                         inputs=[('E.input', Ib), ('I.input', Ib)])
+t = runner.run(1000.)
 
 # %% [markdown]
 # ### Visualization
@@ -164,11 +110,11 @@ import matplotlib.pyplot as plt
 fig, gs = bp.visualize.get_figure(4, 1, 2, 10)
 
 fig.add_subplot(gs[:3, 0])
-bp.visualize.raster_plot(E.mon.ts, E.mon.spike, xlim=(50, 950))
+bp.visualize.raster_plot(runner.mon.ts, runner.mon['E.spike'], xlim=(50, 950))
 
 fig.add_subplot(gs[3, 0])
-rates = bp.measure.firing_rate(E.mon.spike, 5.)
-plt.plot(E.mon.ts, rates)
+rates = bp.measure.firing_rate(runner.mon['E.spike'], 5.)
+plt.plot(runner.mon.ts, rates)
 plt.xlim(50, 950)
 plt.show()
 

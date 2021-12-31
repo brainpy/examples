@@ -13,10 +13,8 @@
 
 # %%
 import brainpy as bp
-import brainpy.math.jax as bm
-
-bp.math.use_backend('jax')
-bp.__version__
+import brainpy.math as bm
+bm.set_platform('cpu')
 
 # %%
 import time
@@ -404,7 +402,7 @@ f_cell = lambda h: net.cell(h, bm.zeros(net.num_input))
 fp_candidates = hiddens.reshape((-1, net.num_hidden))
 
 # %%
-finder = bp.analysis.numeric.FixedPointFinder(
+finder = bp.analysis.numeric.SlowPointFinder(
   f_cell=f_cell,
   f_type='F',
   tol_outlier=.1,

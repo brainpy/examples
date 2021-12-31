@@ -25,9 +25,9 @@
 # %%
 import brainpy as bp
 import brainpy.math as bm
-import matplotlib.pyplot as plt
 
-bm.use_backend('jax')
+bm.set_platform('cpu')
+import matplotlib.pyplot as plt
 
 
 # %% [markdown]
@@ -124,7 +124,7 @@ class PoissonStim(bp.NeuGroup):
     self.rng = bm.random.RandomState()
 
   def update(self, _t, _dt):
-    in_interval = bm.logical_and(pre_period < _t, _t < pre_period + stim_period)
+    in_interval = bm.logical_and(pre_stimulus_period < _t, _t < pre_stimulus_period + stimulus_period)
     prev_freq = bm.where(in_interval, self.freq[0], 0.)
     in_interval = bm.logical_and(in_interval, (_t - self.freq_t_last_change[0]) >= self.t_interval)
     self.freq[:] = bm.where(in_interval, self.rng.normal(self.freq_mean, self.freq_var), prev_freq)
@@ -176,38 +176,8 @@ class PoissonStim(bp.NeuGroup):
 # - the decay time of AMPA currents $\tau_{A M P A}$ = 2 ms
 # - for the external AMPA currents, the spikes are emitted according to a Poisson process with rate $V_{ext}$ = 2400 Hz independently from cell to cell
 
-# %%
-class AMPA_One(bp.TwoEndConn):
-  def __init__(self, pre, post, delay=0.5, g_max=0.10, E=0., tau=2.0, **kwargs):
-    super(AMPA_One, self).__init__(pre=pre, post=post, **kwargs)
-
-    # parameters
-    self.g_max = g_max
-    self.E = E
-    self.tau = tau
-    self.delay = delay
-
-    # variables
-    self.pre_spike = self.register_constant_delay('ps', size=self.pre.num, delay=delay)
-    self.s = bm.Variable(bm.zeros(self.pre.num))
-
-    # function
-    self.integral = bp.odeint(self.derivative)
-
-  def derivative(self, s, t):
-    ds = - s / self.tau
-    return ds
-
-  def update(self, _t, _dt):
-    self.pre_spike.push(self.pre.spike)
-    pre_spike = self.pre_spike.pull()
-    self.s.value = self.integral(self.s, _t)
-    self.s += pre_spike * self.g_max
-    self.post.input += self.s * (self.post.V - self.E)
-
 
 # %%
-
 class AMPA(bp.TwoEndConn):
   def __init__(self, pre, post, delay=0.5, g_max=0.10, E=0., tau=2.0, **kwargs):
     super(AMPA, self).__init__(pre=pre, post=post, **kwargs)
@@ -234,6 +204,16 @@ class AMPA(bp.TwoEndConn):
     pre_spike = self.pre_spike.pull()
     self.s.value = self.integral(self.s, _t)
     self.s += pre_spike.sum() * self.g_max
+    self.post.input += self.s * (self.post.V - self.E)
+
+
+# %%
+class AMPA_One(AMPA):
+  def update(self, _t, _dt):
+    self.pre_spike.push(self.pre.spike)
+    pre_spike = self.pre_spike.pull()
+    self.s.value = self.integral(self.s, _t)
+    self.s += pre_spike * self.g_max
     self.post.input += self.s * (self.post.V - self.E)
 
 
@@ -315,143 +295,124 @@ class GABAa(AMPA):
 
 
 # %% [markdown]
-# ## Parameters
+# ## Network model
 
 # %%
-scale = 1.
-num_exc = int(1600 * scale)
-num_inh = int(400 * scale)
-f = 0.15
-num_A = int(f * num_exc)
-num_B = int(f * num_exc)
-num_N = num_exc - num_A - num_B
-print(f'Total network size: {num_exc + num_inh}')
+class DecisionMaking(bp.Network):
+  def __init__(self, scale=1., mu0=40., coherence=25.6, **kwargs):
+    super(DecisionMaking, self).__init__(**kwargs)
+
+    num_exc = int(1600 * scale)
+    num_inh = int(400 * scale)
+    f = 0.15
+    num_A = int(f * num_exc)
+    num_B = int(f * num_exc)
+    num_N = num_exc - num_A - num_B
+    print(f'Total network size: {num_exc + num_inh}')
+
+    poisson_freq = 2400.  # Hz
+    w_pos = 1.7
+    w_neg = 1. - f * (w_pos - 1.) / (1. - f)
+    g_max_ext2E_AMPA = 2.1 * 1e-3  # uS
+    g_max_ext2I_AMPA = 1.62 * 1e-3  # uS
+    g_max_E2E_AMPA = 0.05 * 1e-3 / scale  # uS
+    g_max_E2E_NMDA = 0.165 * 1e-3 / scale  # uS
+    g_max_E2I_AMPA = 0.04 * 1e-3 / scale  # uS
+    g_max_E2I_NMDA = 0.13 * 1e-3 / scale  # uS
+    g_max_I2E_GABAa = 1.3 * 1e-3 / scale  # uS
+    g_max_I2I_GABAa = 1.0 * 1e-3 / scale  # uS
+
+    # E neurons/pyramid neurons
+    A = LIF(num_A, Cm=0.5, gL=0.025, t_refractory=2.)
+    B = LIF(num_B, Cm=0.5, gL=0.025, t_refractory=2.)
+    N = LIF(num_N, Cm=0.5, gL=0.025, t_refractory=2.)
+    # I neurons/interneurons
+    I = LIF(num_inh, Cm=0.2, gL=0.020, t_refractory=1.)
+
+    IA = PoissonStim(num_A, freq_var=10., t_interval=50.,
+                     freq_mean=mu0 + mu0 / 100. * coherence)
+    IB = PoissonStim(num_B, freq_var=10., t_interval=50.,
+                     freq_mean=mu0 - mu0 / 100. * coherence)
+
+    self.A = A
+    self.B = B
+    self.N = N
+    self.I = I
+    self.IA = IA
+    self.IB = IB
+    self.noise_A = PoissonNoise(num_A, freq=poisson_freq)
+    self.noise_B = PoissonNoise(num_B, freq=poisson_freq)
+    self.noise_N = PoissonNoise(num_N, freq=poisson_freq)
+    self.noise_I = PoissonNoise(num_inh, freq=poisson_freq)
+
+    # define external inputs
+    self.IA2A = AMPA_One(pre=IA, post=A, g_max=g_max_ext2E_AMPA)
+    self.IB2B = AMPA_One(pre=IB, post=B, g_max=g_max_ext2E_AMPA)
+
+    # define E2E conn
+    self.A2A_AMPA = AMPA(pre=A, post=A, g_max=g_max_E2E_AMPA * w_pos)
+    self.A2A_NMDA = NMDA(pre=A, post=A, g_max=g_max_E2E_NMDA * w_pos)
+
+    self.A2B_AMPA = AMPA(pre=A, post=B, g_max=g_max_E2E_AMPA * w_neg)
+    self.A2B_NMDA = NMDA(pre=A, post=B, g_max=g_max_E2E_NMDA * w_neg)
+
+    self.A2N_AMPA = AMPA(pre=A, post=N, g_max=g_max_E2E_AMPA)
+    self.A2N_NMDA = NMDA(pre=A, post=N, g_max=g_max_E2E_NMDA)
+
+    self.B2A_AMPA = AMPA(pre=B, post=A, g_max=g_max_E2E_AMPA * w_neg)
+    self.B2A_NMDA = NMDA(pre=B, post=A, g_max=g_max_E2E_NMDA * w_neg)
+
+    self.B2B_AMPA = AMPA(pre=B, post=B, g_max=g_max_E2E_AMPA * w_pos)
+    self.B2B_NMDA = NMDA(pre=B, post=B, g_max=g_max_E2E_NMDA * w_pos)
+
+    self.B2N_AMPA = AMPA(pre=B, post=N, g_max=g_max_E2E_AMPA)
+    self.B2N_NMDA = NMDA(pre=B, post=N, g_max=g_max_E2E_NMDA)
+
+    self.N2A_AMPA = AMPA(pre=N, post=A, g_max=g_max_E2E_AMPA * w_neg)
+    self.N2A_NMDA = NMDA(pre=N, post=A, g_max=g_max_E2E_NMDA * w_neg)
+
+    self.N2B_AMPA = AMPA(pre=N, post=B, g_max=g_max_E2E_AMPA * w_neg)
+    self.N2B_NMDA = NMDA(pre=N, post=B, g_max=g_max_E2E_NMDA * w_neg)
+
+    self.N2N_AMPA = AMPA(pre=N, post=N, g_max=g_max_E2E_AMPA)
+    self.N2N_NMDA = NMDA(pre=N, post=N, g_max=g_max_E2E_NMDA)
+
+    # define E2I conn
+    self.A2I_AMPA = AMPA(pre=A, post=I, g_max=g_max_E2I_AMPA)
+    self.A2I_NMDA = NMDA(pre=A, post=I, g_max=g_max_E2I_NMDA)
+
+    self.B2I_AMPA = AMPA(pre=B, post=I, g_max=g_max_E2I_AMPA)
+    self.B2I_NMDA = NMDA(pre=B, post=I, g_max=g_max_E2I_NMDA)
+
+    self.N2I_AMPA = AMPA(pre=N, post=I, g_max=g_max_E2I_AMPA)
+    self.N2I_NMDA = NMDA(pre=N, post=I, g_max=g_max_E2I_NMDA)
+
+    self.I2A_GABAa = GABAa(pre=I, post=A, g_max=g_max_I2E_GABAa)
+    self.I2B_GABAa = GABAa(pre=I, post=B, g_max=g_max_I2E_GABAa)
+    self.I2N_GABAa = GABAa(pre=I, post=N, g_max=g_max_I2E_GABAa)
+
+    # define I2I conn
+    self.I2I_GABAa = GABAa(pre=I, post=I, g_max=g_max_I2I_GABAa)
+
+    # define external projections
+    self.noise2A = AMPA_One(pre=self.noise_A, post=A, g_max=g_max_ext2E_AMPA)
+    self.noise2B = AMPA_One(pre=self.noise_B, post=B, g_max=g_max_ext2E_AMPA)
+    self.noise2N = AMPA_One(pre=self.noise_N, post=N, g_max=g_max_ext2E_AMPA)
+    self.noise2I = AMPA_One(pre=self.noise_I, post=I, g_max=g_max_ext2I_AMPA)
+
 
 # %%
-mu0 = 40.
-coherence = 25.6
+net = DecisionMaking(scale=1.)
 
 # %%
-# times
-pre_period = 100.
-stim_period = 1000.
+runner = bp.StructRunner(net, monitors=['A.spike', 'B.spike', 'IA.freq', 'IB.freq'],
+                         dyn_vars=net.vars(), jit=True)
+pre_stimulus_period = 100.
+stimulus_period = 1000.
 delay_period = 500.
-total_period = pre_period + stim_period + delay_period
-
-# %%
-poisson_freq = 2400.  # Hz
-w_pos = 1.7
-w_neg = 1. - f * (w_pos - 1.) / (1. - f)
-g_max_ext2E_AMPA = 2.1 * 1e-3  # uS
-g_max_ext2I_AMPA = 1.62 * 1e-3  # uS
-g_max_E2E_AMPA = 0.05 * 1e-3 / scale  # uS
-g_max_E2E_NMDA = 0.165 * 1e-3 / scale  # uS
-g_max_E2I_AMPA = 0.04 * 1e-3 / scale  # uS
-g_max_E2I_NMDA = 0.13 * 1e-3 / scale  # uS
-g_max_I2E_GABAa = 1.3 * 1e-3 / scale  # uS
-g_max_I2I_GABAa = 1.0 * 1e-3 / scale  # uS
-
-# %% [markdown]
-# ## Build the network
-
-
-# %%
-# E neurons/pyramid neurons
-A = LIF(num_A, Cm=0.5, gL=0.025, t_refractory=2.)
-B = LIF(num_B, Cm=0.5, gL=0.025, t_refractory=2.)
-N = LIF(num_N, Cm=0.5, gL=0.025, t_refractory=2.)
-# I neurons/interneurons
-I = LIF(num_inh, Cm=0.2, gL=0.020, t_refractory=1.)
-
-# %%
-IA = PoissonStim(num_A, freq_var=10., t_interval=50.,
-                 freq_mean=mu0 + mu0 / 100. * coherence)
-IB = PoissonStim(num_B, freq_var=10., t_interval=50.,
-                 freq_mean=mu0 - mu0 / 100. * coherence)
-
-# %%
-noise_A = PoissonNoise(num_A, freq=poisson_freq)
-noise_B = PoissonNoise(num_B, freq=poisson_freq)
-noise_N = PoissonNoise(num_N, freq=poisson_freq)
-noise_I = PoissonNoise(num_inh, freq=poisson_freq)
-
-# %%
-IA2A = AMPA_One(pre=IA, post=A, g_max=g_max_ext2E_AMPA)
-IB2B = AMPA_One(pre=IB, post=B, g_max=g_max_ext2E_AMPA)
-
-# %%
-## define E2E conn
-A2A_AMPA = AMPA(pre=A, post=A, g_max=g_max_E2E_AMPA * w_pos)
-A2A_NMDA = NMDA(pre=A, post=A, g_max=g_max_E2E_NMDA * w_pos)
-
-A2B_AMPA = AMPA(pre=A, post=B, g_max=g_max_E2E_AMPA * w_neg)
-A2B_NMDA = NMDA(pre=A, post=B, g_max=g_max_E2E_NMDA * w_neg)
-
-A2N_AMPA = AMPA(pre=A, post=N, g_max=g_max_E2E_AMPA)
-A2N_NMDA = NMDA(pre=A, post=N, g_max=g_max_E2E_NMDA)
-
-B2A_AMPA = AMPA(pre=B, post=A, g_max=g_max_E2E_AMPA * w_neg)
-B2A_NMDA = NMDA(pre=B, post=A, g_max=g_max_E2E_NMDA * w_neg)
-
-B2B_AMPA = AMPA(pre=B, post=B, g_max=g_max_E2E_AMPA * w_pos)
-B2B_NMDA = NMDA(pre=B, post=B, g_max=g_max_E2E_NMDA * w_pos)
-
-B2N_AMPA = AMPA(pre=B, post=N, g_max=g_max_E2E_AMPA)
-B2N_NMDA = NMDA(pre=B, post=N, g_max=g_max_E2E_NMDA)
-
-N2A_AMPA = AMPA(pre=N, post=A, g_max=g_max_E2E_AMPA * w_neg)
-N2A_NMDA = NMDA(pre=N, post=A, g_max=g_max_E2E_NMDA * w_neg)
-
-N2B_AMPA = AMPA(pre=N, post=B, g_max=g_max_E2E_AMPA * w_neg)
-N2B_NMDA = NMDA(pre=N, post=B, g_max=g_max_E2E_NMDA * w_neg)
-
-N2N_AMPA = AMPA(pre=N, post=N, g_max=g_max_E2E_AMPA)
-N2N_NMDA = NMDA(pre=N, post=N, g_max=g_max_E2E_NMDA)
-
-## define E2I conn
-A2I_AMPA = AMPA(pre=A, post=I, g_max=g_max_E2I_AMPA)
-A2I_NMDA = NMDA(pre=A, post=I, g_max=g_max_E2I_NMDA)
-
-B2I_AMPA = AMPA(pre=B, post=I, g_max=g_max_E2I_AMPA)
-B2I_NMDA = NMDA(pre=B, post=I, g_max=g_max_E2I_NMDA)
-
-N2I_AMPA = AMPA(pre=N, post=I, g_max=g_max_E2I_AMPA)
-N2I_NMDA = NMDA(pre=N, post=I, g_max=g_max_E2I_NMDA)
-
-I2A_GABAa = GABAa(pre=I, post=A, g_max=g_max_I2E_GABAa)
-I2B_GABAa = GABAa(pre=I, post=B, g_max=g_max_I2E_GABAa)
-I2N_GABAa = GABAa(pre=I, post=N, g_max=g_max_I2E_GABAa)
-
-## define I2I conn
-I2I_GABAa = GABAa(pre=I, post=I, g_max=g_max_I2I_GABAa)
-
-## define external projections
-noise2A = AMPA_One(pre=noise_A, post=A, g_max=g_max_ext2E_AMPA)
-noise2B = AMPA_One(pre=noise_B, post=B, g_max=g_max_ext2E_AMPA)
-noise2N = AMPA_One(pre=noise_N, post=N, g_max=g_max_ext2E_AMPA)
-noise2I = AMPA_One(pre=noise_I, post=I, g_max=g_max_ext2I_AMPA)
-
-# %%
-net = bp.Network(
-  # Synaptic Connections
-  noise2A, noise2B, noise2N, noise2I, IA2A, IB2B,
-  A2A_AMPA, A2A_NMDA, A2B_AMPA, A2B_NMDA, A2N_AMPA, A2N_NMDA, B2A_AMPA, B2A_NMDA,
-  B2B_AMPA, B2B_NMDA, B2N_AMPA, B2N_NMDA, N2A_AMPA, N2A_NMDA, N2B_AMPA, N2B_NMDA,
-  A2I_AMPA, A2I_NMDA, B2I_AMPA, B2I_NMDA, N2I_AMPA, N2I_NMDA, N2N_AMPA, N2N_NMDA,
-  I2A_GABAa, I2B_GABAa, I2N_GABAa, I2I_GABAa,
-  # Neuron Groups
-  noise_A, noise_B, noise_N, noise_I, N, I,
-  A=A, B=B, IA=IA, IB=IB,
-  monitors=['A.spike', 'B.spike', 'IA.freq', 'IB.freq']
-)
-
-# %%
-# build & simulate network
-
-net.build()
-
-ts = net.struct_run(total_period)
-print(f'Used time: {ts} s')
+total_period = pre_stimulus_period + stimulus_period + delay_period
+t = runner(total_period)
+print(f'Used time: {t} s')
 
 # %% [markdown]
 # ## Visualization
@@ -459,47 +420,48 @@ print(f'Used time: {ts} s')
 # %%
 fig, gs = bp.visualize.get_figure(4, 1, 3, 10)
 
+runner.mon.numpy()
 t_start = 0.
 fig.add_subplot(gs[0, 0])
-bp.visualize.raster_plot(net.mon.ts, net.mon['A.spike'], markersize=1)
+bp.visualize.raster_plot(runner.mon.ts, runner.mon['A.spike'], markersize=1)
 plt.title("Spiking activity of group A")
 plt.ylabel("Neuron Index")
 plt.xlim(t_start, total_period + 1)
-plt.axvline(pre_period, linestyle='dashed')
-plt.axvline(pre_period + stim_period, linestyle='dashed')
-plt.axvline(pre_period + stim_period + delay_period, linestyle='dashed')
+plt.axvline(pre_stimulus_period, linestyle='dashed')
+plt.axvline(pre_stimulus_period + stimulus_period, linestyle='dashed')
+plt.axvline(pre_stimulus_period + stimulus_period + delay_period, linestyle='dashed')
 
 fig.add_subplot(gs[1, 0])
-bp.visualize.raster_plot(net.mon.ts, net.mon['B.spike'], markersize=1)
+bp.visualize.raster_plot(runner.mon.ts, runner.mon['B.spike'], markersize=1)
 plt.title("Spiking activity of group B")
 plt.ylabel("Neuron Index")
 plt.xlim(t_start, total_period + 1)
-plt.axvline(pre_period, linestyle='dashed')
-plt.axvline(pre_period + stim_period, linestyle='dashed')
-plt.axvline(pre_period + stim_period + delay_period, linestyle='dashed')
+plt.axvline(pre_stimulus_period, linestyle='dashed')
+plt.axvline(pre_stimulus_period + stimulus_period, linestyle='dashed')
+plt.axvline(pre_stimulus_period + stimulus_period + delay_period, linestyle='dashed')
 
 fig.add_subplot(gs[2, 0])
-rateA = bp.measure.firing_rate(net.mon['A.spike'], width=10.)
-rateB = bp.measure.firing_rate(net.mon['B.spike'], width=10.)
-plt.plot(net.mon.ts, rateA, label="Group A")
-plt.plot(net.mon.ts, rateB, label="Group B")
+rateA = bp.measure.firing_rate(runner.mon['A.spike'], width=10.)
+rateB = bp.measure.firing_rate(runner.mon['B.spike'], width=10.)
+plt.plot(runner.mon.ts, rateA, label="Group A")
+plt.plot(runner.mon.ts, rateB, label="Group B")
 plt.ylabel('Firing rate [Hz]')
 plt.title("Population activity")
 plt.xlim(t_start, total_period + 1)
-plt.axvline(pre_period, linestyle='dashed')
-plt.axvline(pre_period + stim_period, linestyle='dashed')
-plt.axvline(pre_period + stim_period + delay_period, linestyle='dashed')
+plt.axvline(pre_stimulus_period, linestyle='dashed')
+plt.axvline(pre_stimulus_period + stimulus_period, linestyle='dashed')
+plt.axvline(pre_stimulus_period + stimulus_period + delay_period, linestyle='dashed')
 plt.legend()
 
 fig.add_subplot(gs[3, 0])
-plt.plot(net.mon.ts, net.mon['IA.freq'], label="group A")
-plt.plot(net.mon.ts, net.mon['IB.freq'], label="group B")
+plt.plot(runner.mon.ts, runner.mon['IA.freq'], label="group A")
+plt.plot(runner.mon.ts, runner.mon['IB.freq'], label="group B")
 plt.title("Input activity")
 plt.ylabel("Firing rate [Hz]")
 plt.xlim(t_start, total_period + 1)
-plt.axvline(pre_period, linestyle='dashed')
-plt.axvline(pre_period + stim_period, linestyle='dashed')
-plt.axvline(pre_period + stim_period + delay_period, linestyle='dashed')
+plt.axvline(pre_stimulus_period, linestyle='dashed')
+plt.axvline(pre_stimulus_period + stimulus_period, linestyle='dashed')
+plt.axvline(pre_stimulus_period + stimulus_period + delay_period, linestyle='dashed')
 plt.legend()
 
 plt.xlabel("Time [ms]")

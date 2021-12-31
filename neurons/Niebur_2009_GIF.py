@@ -62,15 +62,18 @@ import brainmodels
 
 # %%
 def run(model, duration, I_ext):
-  model.run(duration, inputs=('input', I_ext, 'iter'))
+  runner = bp.StructRunner(model,
+                           inputs=('input', I_ext, 'iter'),
+                           monitors=['V', 'V_th'])
+  runner.run(duration)
 
-  ts = model.mon.ts
+  ts = runner.mon.ts
   fig, gs = bp.visualize.get_figure(1, 1, 4, 8)
   ax1 = fig.add_subplot(gs[0, 0])
   #ax1.title.set_text(f'{mode}')
 
-  ax1.plot(ts, model.mon.V[:, 0], label='V')
-  ax1.plot(ts, model.mon.V_th[:, 0], label='V_th')
+  ax1.plot(ts, runner.mon.V[:, 0], label='V')
+  ax1.plot(ts, runner.mon.V_th[:, 0], label='V_th')
   ax1.set_xlabel('Time (ms)')
   ax1.set_ylabel('Membrane potential')
   ax1.set_xlim(-0.1, ts[-1] + 0.1)
@@ -94,7 +97,7 @@ def run(model, duration, I_ext):
 
 # %%
 Iext, duration = bp.inputs.constant_current([(1.5, 200.)])
-neu = brainmodels.neurons.GIF(1, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -102,7 +105,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(1.+1e-6, 500.)])
-neu = brainmodels.neurons.GIF(1, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -110,7 +113,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(2., 200.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -118,7 +121,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(1.5, 500.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -131,7 +134,7 @@ Iext, duration = bp.inputs.constant_current([(1.5, 100.),
                                              (1., 100.), 
                                              (1.5, 100.), 
                                              (0., 100.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -144,7 +147,7 @@ Iext, duration = bp.inputs.constant_current([(1.5, 20.),
                                              (0., 20.), 
                                              (1.5, 20.), 
                                              (0., 140.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -152,7 +155,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(0, 50.), (-3.5, 750.), (0., 200.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -160,7 +163,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(2 * (1. + 1e-6), 200.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005)
 neu.V_th[:] = -30.
 run(neu, duration, Iext)
 
@@ -176,7 +179,7 @@ Iext, duration = bp.inputs.constant_current([(1.5, 20.),
                                              (0., 30.), 
                                              (1.5, 20.), 
                                              (0., 30.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -187,7 +190,7 @@ Iext, duration = bp.inputs.constant_current([(1.5, 100.),
                                              (1.7, 400.),
                                              (1.5, 100.), 
                                              (1.7, 400.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -195,7 +198,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(-1., 400.)])
-neu = brainmodels.neurons.GIF(1, V_th_reset=-60., V_th_inf=-120., monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, V_th_reset=-60., V_th_inf=-120.)
 neu.V_th[:] = -50.
 run(neu, duration, Iext)
 
@@ -205,7 +208,7 @@ run(neu, duration, Iext)
 # %%
 Iext, duration = bp.inputs.constant_current([(-1., 400.)])
 neu = brainmodels.neurons.GIF(1, V_th_reset=-60., V_th_inf=-120., A1=10., 
-                              A2=-0.6, monitors=['V', 'V_th'])
+                              A2=-0.6)
 neu.V_th[:] = -50.
 run(neu, duration, Iext)
 
@@ -214,7 +217,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(2., 500.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, A1=10., A2=-0.6, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005, A1=10., A2=-0.6)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -222,7 +225,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(1.5, 500.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, A1=10., A2=-0.6, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005, A1=10., A2=-0.6)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -230,7 +233,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(0, 100.), (-3.5, 500.), (0., 400.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, A1=10., A2=-0.6, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005, A1=10., A2=-0.6)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -238,7 +241,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(2., 500.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, A1=5., A2=-0.3, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005, A1=5., A2=-0.3)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -246,7 +249,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(2., 15.), (0, 185.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, A1=5., A2=-0.3, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005, A1=5., A2=-0.3)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -254,7 +257,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(5., 10.), (0., 90.), (5., 10.), (0., 90.)])
-neu = brainmodels.neurons.GIF(1, A1=8., A2=-0.1, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, A1=8., A2=-0.1)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -269,7 +272,7 @@ Iext, duration = bp.inputs.constant_current([(5., 10.),
                                              (0., 90.), 
                                              (4., 10.), 
                                              (0., 290.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, A1=-3., A2=0.5, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=0.005, A1=-3., A2=0.5)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -277,5 +280,5 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(8., 2.), (0, 48.)])
-neu = brainmodels.neurons.GIF(1, a=-0.08, monitors=['V', 'V_th'])
+neu = brainmodels.neurons.GIF(1, a=-0.08)
 run(neu, duration, Iext)
