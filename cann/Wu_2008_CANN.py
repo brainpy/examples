@@ -14,7 +14,7 @@
 # ---
 
 # %% [markdown]
-# # _(Si Wu, 2008)_ Continuous-attractor Neural Network
+# # _(Si Wu, 2008)_: Continuous-attractor Neural Network 1D
 
 # %% [markdown]
 # Here we show the implementation of the paper:
@@ -40,7 +40,6 @@
 # %%
 import brainpy as bp
 import brainpy.math as bm
-bm.set_platform('cpu')
 
 
 # %%
