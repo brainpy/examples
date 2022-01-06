@@ -3,3 +3,4 @@
 
    Wu_2008_CANN.ipynb
    Wu_2008_CANN_2D.ipynb
+   Wu_2008_CANN_1D_oscillatory_tracking.ipynb
