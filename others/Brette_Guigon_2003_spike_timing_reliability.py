@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 # # *(Brette & Guigon, 2003)*: Reliability of spike timing
+
+# Implementation of the paper:
+#
+# - Brette R and E Guigon (2003). Reliability of Spike Timing Is a General Property of Spiking Model Neurons. Neural Computation 15, 279-308.
+
 import brainpy as bp
 import brainpy.math as bm
 import matplotlib.pyplot as plt
