@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # %% [markdown]
-# # *(Sherman & Rinzel, 1992)* Gap junction leads to anti-oscillation_synchronization
+# # *(Sherman & Rinzel, 1992)* Gap junction leads to anti-synchronization
 
 # %% [markdown]
 # Implementation of the paper: 
