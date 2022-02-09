@@ -25,13 +25,11 @@ which can be post through our `github <https://github.com/PKU-NIP-Lab/BrainPyExa
     cann/index.rst
 
 
-
 .. toctree::
    :maxdepth: 1
    :caption: Decision Making Model
 
    decision_making/index.rst
-
 
 
 .. toctree::
@@ -41,13 +39,11 @@ which can be post through our `github <https://github.com/PKU-NIP-Lab/BrainPyExa
    ei_nets/index.rst
 
 
-
 .. toctree::
-    :maxdepth: 1
-    :caption: Gap Junction Network
+   :maxdepth: 1
+   :caption: Gap Junction Network
 
-    gj_nets/index.rst
-
+   gj_nets/index.rst
 
 
 .. toctree::
@@ -59,7 +55,9 @@ which can be post through our `github <https://github.com/PKU-NIP-Lab/BrainPyExa
 
 .. toctree::
    :maxdepth: 1
-   :caption: Large-Scale Simulation
+   :caption: Large-Scale Modeling
+
+   large_scale_modeling/index.rst
 
 
 .. toctree::
@@ -67,7 +65,6 @@ which can be post through our `github <https://github.com/PKU-NIP-Lab/BrainPyExa
    :caption: Recurrent Neural Network
 
    recurrent_networks/index.rst
-
 
 
 .. toctree::
@@ -83,6 +80,12 @@ which can be post through our `github <https://github.com/PKU-NIP-Lab/BrainPyExa
 
    dynamics_analysis/index.rst
 
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Unclassified Models
+
+   others/index.rst
 
 
 Indices and tables
