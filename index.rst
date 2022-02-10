@@ -69,6 +69,13 @@ which can be post through our `github <https://github.com/PKU-NIP-Lab/BrainPyExa
 
 .. toctree::
    :maxdepth: 1
+   :caption: Reservoir Computing
+
+   reservoir_computing/index.rst
+
+
+.. toctree::
+   :maxdepth: 1
    :caption: Working Memory Model
 
    working_memory/index.rst
@@ -79,6 +86,14 @@ which can be post through our `github <https://github.com/PKU-NIP-Lab/BrainPyExa
    :caption: Dynamics Analysis
 
    dynamics_analysis/index.rst
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Classical Dynamical Systems
+
+   classical_dynamical_systems/index.rst
+
 
 
 .. toctree::
