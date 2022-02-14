@@ -117,7 +117,7 @@ runner = bp.StructRunner(cann,
 runner.run(length)
 
 # %% [markdown]
-# ![](../images/cann_2d_encoding.gif)
+# ![encoding](../images/cann_2d_encoding.gif)
 
 # %%
 bp.visualize.animate_2D(values=runner.mon.r,
@@ -143,4 +143,4 @@ bp.visualize.animate_2D(values=runner.mon.r,
                        show=False)
 
 # %% [markdown]
-# ![](../images/cann_2d_tracking.gif)
+# ![tracking](../images/cann_2d_tracking.gif)
