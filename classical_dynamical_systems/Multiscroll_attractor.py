@@ -48,8 +48,8 @@ def chen_system(x, y, z, t, a=40, b=3, c=28):
   return dx, dy, dz
 
 
-runner = bp.IntegratorRunner(chen_system, monitors=['x', 'y', 'z'],
-                             inits=dict(x=-0.1, y=0.5, z=-0.6), dt=0.001)
+runner = bp.integrators.IntegratorRunner(chen_system, monitors=['x', 'y', 'z'],
+                                         inits=dict(x=-0.1, y=0.5, z=-0.6), dt=0.001)
 run_and_visualize(runner, 100)
 
 
@@ -77,27 +77,27 @@ def lu_chen_system(x, y, z, t, a=36, c=20, b=3, u=-15.15):
   return dx, dy, dz
 
 
-runner = bp.IntegratorRunner(lu_chen_system, monitors=['x', 'y', 'z'],
-                             inits=dict(x=0.1, y=0.3, z=-0.6),
-                             args=dict(u=-15.15),
-                             dt=0.002)
+runner = bp.integrators.IntegratorRunner(lu_chen_system, monitors=['x', 'y', 'z'],
+                                         inits=dict(x=0.1, y=0.3, z=-0.6),
+                                         args=dict(u=-15.15),
+                                         dt=0.002)
 run_and_visualize(runner, 100)
-runner = bp.IntegratorRunner(lu_chen_system, monitors=['x', 'y', 'z'],
-                             inits=dict(x=0.1, y=0.3, z=-0.6),
-                             args=dict(u=-8),
-                             dt=0.002)
-run_and_visualize(runner, 100)
-
-runner = bp.IntegratorRunner(lu_chen_system, monitors=['x', 'y', 'z'],
-                             inits=dict(x=0.1, y=0.3, z=-0.6),
-                             args=dict(u=11),
-                             dt=0.002)
+runner = bp.integrators.IntegratorRunner(lu_chen_system, monitors=['x', 'y', 'z'],
+                                         inits=dict(x=0.1, y=0.3, z=-0.6),
+                                         args=dict(u=-8),
+                                         dt=0.002)
 run_and_visualize(runner, 100)
 
-runner = bp.IntegratorRunner(lu_chen_system, monitors=['x', 'y', 'z'],
-                             inits=dict(x=0.1, y=0.3, z=-0.6),
-                             args=dict(u=12),
-                             dt=0.002)
+runner = bp.integrators.IntegratorRunner(lu_chen_system, monitors=['x', 'y', 'z'],
+                                         inits=dict(x=0.1, y=0.3, z=-0.6),
+                                         args=dict(u=11),
+                                         dt=0.002)
+run_and_visualize(runner, 100)
+
+runner = bp.integrators.IntegratorRunner(lu_chen_system, monitors=['x', 'y', 'z'],
+                                         inits=dict(x=0.1, y=0.3, z=-0.6),
+                                         args=dict(u=12),
+                                         dt=0.002)
 run_and_visualize(runner, 100)
 
 
@@ -120,7 +120,7 @@ run_and_visualize(runner, 100)
 # $$
 
 
-class ModifiedLuChenSystem(bp.NeuGroup):
+class ModifiedLuChenSystem(bp.dyn.NeuGroup):
   def __init__(self, num, a=35, b=3, c=28, d0=1, d1=1, d2=0., tau=.2, dt=0.1):
     super(ModifiedLuChenSystem, self).__init__(num)
 
@@ -158,7 +158,7 @@ class ModifiedLuChenSystem(bp.NeuGroup):
 
 
 # +
-runner = bp.StructRunner(ModifiedLuChenSystem(1, dt=0.001),
+runner = bp.dyn.DSRunner(ModifiedLuChenSystem(1, dt=0.001),
                          monitors=['x', 'y', 'z'],
                          dt=0.001)
 
@@ -197,25 +197,25 @@ def chua_system(x, y, z, t, alpha=10, beta=14.514, gamma=0, a=-1.197, b=-0.6464)
   return dx, dy, dz
 
 
-runner = bp.IntegratorRunner(chua_system, monitors=['x', 'y', 'z'],
-                             inits=dict(x=0.001, y=0, z=0.),
-                             dt=0.002)
+runner = bp.integrators.IntegratorRunner(chua_system, monitors=['x', 'y', 'z'],
+                                         inits=dict(x=0.001, y=0, z=0.),
+                                         dt=0.002)
 run_and_visualize(runner, 100)
 
-runner = bp.IntegratorRunner(chua_system, monitors=['x', 'y', 'z'],
-                             inits=dict(x=9.4287, y=-0.5945, z=-13.4705),
-                             args=dict(alpha=8.8, beta=12.0732, gamma=0.0052,
-                                       a=-0.1768, b=-1.1468),
-                             dt=0.002)
+runner = bp.integrators.IntegratorRunner(chua_system, monitors=['x', 'y', 'z'],
+                                         inits=dict(x=9.4287, y=-0.5945, z=-13.4705),
+                                         args=dict(alpha=8.8, beta=12.0732, gamma=0.0052,
+                                                   a=-0.1768, b=-1.1468),
+                                         dt=0.002)
 run_and_visualize(runner, 100)
 
-runner = bp.IntegratorRunner(chua_system, monitors=['x', 'y', 'z'],
-                             inits=dict(x=[-6.0489, 6.0489],
-                                        y=[0.0839, -0.0839],
-                                        z=[8.7739, -8.7739]),
-                             args=dict(alpha=8.4562, beta=12.0732, gamma=0.0052,
-                                       a=-0.1768, b=-1.1468),
-                             dt=0.002)
+runner = bp.integrators.IntegratorRunner(chua_system, monitors=['x', 'y', 'z'],
+                                         inits=dict(x=[-6.0489, 6.0489],
+                                                    y=[0.0839, -0.0839],
+                                                    z=[8.7739, -8.7739]),
+                                         args=dict(alpha=8.4562, beta=12.0732, gamma=0.0052,
+                                                   a=-0.1768, b=-1.1468),
+                                         dt=0.002)
 run_and_visualize(runner, 100)
 
 
@@ -245,9 +245,9 @@ def modified_chua_system(x, y, z, t, alpha=10.82, beta=14.286, a=1.3, b=.11, d=0
   return dx, dy, dz
 
 
-runner = bp.IntegratorRunner(modified_chua_system, monitors=['x', 'y', 'z'],
-                             inits=dict(x=1, y=1, z=0.),
-                             dt=0.01)
+runner = bp.integrators.IntegratorRunner(modified_chua_system, monitors=['x', 'y', 'z'],
+                                         inits=dict(x=1, y=1, z=0.),
+                                         dt=0.01)
 run_and_visualize(runner, 1000)
 
 
@@ -271,9 +271,9 @@ def PWL_duffing_eq(x, y, t, e=0.25, m0=-0.0845, m1=0.66, omega=1, i=-14):
   return dx, dy
 
 
-runner = bp.IntegratorRunner(PWL_duffing_eq, monitors=['x', 'y'],
-                             inits=dict(x=0, y=0),
-                             dt=0.01)
+runner = bp.integrators.IntegratorRunner(PWL_duffing_eq, monitors=['x', 'y'],
+                                         inits=dict(x=0, y=0),
+                                         dt=0.01)
 run_and_visualize(runner, 1000, dim=2)
 
 
@@ -300,9 +300,9 @@ def modified_Lorenz(x, y, z, t, a=10, b=8 / 3, c=137 / 5):
   return dx, dy, dz
 
 
-runner = bp.IntegratorRunner(modified_Lorenz, monitors=['x', 'y', 'z'],
-                             inits=dict(x=-8, y=4, z=10),
-                             dt=0.001)
+runner = bp.integrators.IntegratorRunner(modified_Lorenz, monitors=['x', 'y', 'z'],
+                                         inits=dict(x=-8, y=4, z=10),
+                                         dt=0.001)
 run_and_visualize(runner, 100, dim=3)
 
 # ## References

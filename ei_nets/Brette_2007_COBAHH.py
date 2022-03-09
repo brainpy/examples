@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.5
+#       jupytext_version: 1.11.4
 #   kernelspec:
 #     display_name: brainpy
 #     language: python
@@ -75,7 +75,7 @@ wi = 67.  # inhibitory synaptic conductance [nS]
 # ## Implementation 2
 
 # %%
-class HH(bp.NeuGroup):
+class HH(bp.dyn.NeuGroup):
   def __init__(self, size, method='exp_auto'):
     super(HH, self).__init__(size)
 
@@ -125,7 +125,7 @@ class HH(bp.NeuGroup):
     self.input[:] = 0.
 
 # %%
-class ExpCOBA(bp.TwoEndConn):
+class ExpCOBA(bp.dyn.TwoEndConn):
   def __init__(self, pre, post, conn, g_max=1., delay=0., tau=8.0, E=0.,
                method='exp_auto'):
     super(ExpCOBA, self).__init__(pre=pre, post=post, conn=conn)
@@ -153,7 +153,7 @@ class ExpCOBA(bp.TwoEndConn):
 
 
 # %%
-class COBAHH(bp.Network):
+class COBAHH(bp.dyn.Network):
   def __init__(self, scale=1., method='exp_auto'):
     num_exc = int(3200 * scale)
     num_inh = int(800 * scale)
@@ -175,7 +175,7 @@ class COBAHH(bp.Network):
 net = COBAHH()
 
 # %%
-runner = bp.StructRunner(net, monitors=['E.spike'])
+runner = bp.dyn.DSRunner(net, monitors=['E.spike'])
 t = runner.run(100.)
 
 # %%

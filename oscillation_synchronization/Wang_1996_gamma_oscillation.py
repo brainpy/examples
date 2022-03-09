@@ -22,7 +22,7 @@ bp.math.set_dt(0.05)
 # The GABA$_A$ synapse is coded as:
 
 # %%
-class GABAa(bp.TwoEndConn):
+class GABAa(bp.dyn.TwoEndConn):
   def __init__(self, pre, post, conn, delay=0., g_max=0.1, E=-75.,
                alpha=12., beta=0.1, T=1.0, T_duration=1.0, method='exp_auto'):
     super(GABAa, self).__init__(pre=pre, post=post, conn=conn)
@@ -76,7 +76,7 @@ class GABAa(bp.TwoEndConn):
 # $$ \frac {dn} {dt} = \phi (\alpha_n (1-n) - \beta_n n)$$
 
 # %%
-class HH(bp.NeuGroup):
+class HH(bp.dyn.NeuGroup):
   def __init__(self, size, ENa=55., EK=-90., EL=-65, C=1.0, gNa=35.,
                gK=9., gL=0.1, V_th=20., phi=5.0, method='exp_auto'):
     super(HH, self).__init__(size=size)
@@ -147,8 +147,8 @@ neu.V[:] = -70. + bm.random.normal(size=num) * 20
 syn = GABAa(pre=neu, post=neu, conn=bp.connect.All2All(include_self=False))
 syn.g_max = 0.1 / num
 
-net = bp.Network(neu=neu, syn=syn)
-runner = bp.StructRunner(net, monitors=['neu.spike', 'neu.V'], inputs=['neu.input', 1.])
+net = bp.dyn.Network(neu=neu, syn=syn)
+runner = bp.dyn.DSRunner(net, monitors=['neu.spike', 'neu.V'], inputs=['neu.input', 1.])
 runner.run(duration=500.)
 
 # %%

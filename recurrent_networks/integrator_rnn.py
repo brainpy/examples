@@ -205,8 +205,6 @@ plot_data(num_step, inputs=_ints, targets=_outs)
 
 # %%
 class IntegratorRNN(bp.DynamicalSystem):
-  target_backend = 'jax'
-
   def __init__(self, num_input, num_hidden, num_output, num_batch,
                g=1.0, l2_reg=2e-4, **kwargs):
     super(IntegratorRNN, self).__init__(**kwargs)
@@ -289,7 +287,6 @@ for i in range(num_train):
   if (i + 1) % 100 == 0:
     print(f"Run batch {i} in {time.time() - t0:0.3f} s, learning rate: "
           f"{lr():.5f}, training loss {loss:0.4f}")
-
 
     train_losses['total'].append(net.total_loss[0])
     train_losses['l2'].append(net.l2_loss[0])

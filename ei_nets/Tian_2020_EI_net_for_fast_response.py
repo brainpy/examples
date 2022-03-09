@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.5
+#       jupytext_version: 1.11.4
 #   kernelspec:
 #     display_name: brainpy
 #     language: python
@@ -55,7 +55,7 @@ JII = -1.
 
 
 # %%
-class LIF(bp.NeuGroup):
+class LIF(bp.dyn.NeuGroup):
   def __init__(self, size, tau, **kwargs):
     super(LIF, self).__init__(size, **kwargs)
 
@@ -78,7 +78,7 @@ class LIF(bp.NeuGroup):
 
 
 # %%
-class EINet(bp.Network):
+class EINet(bp.dyn.Network):
   def __init__(self):
     # neurons
     E = LIF(num_exc, tau=tau_E)
@@ -99,7 +99,7 @@ class EINet(bp.Network):
 net = EINet()
 
 # %%
-runner = bp.StructRunner(net,
+runner = bp.dyn.DSRunner(net,
                          monitors=['E.spike', 'I.spike'],
                          inputs=[('E.input', f_E * bm.sqrt(num) * mu_f),
                                  ('I.input', f_I * bm.sqrt(num) * mu_f)])

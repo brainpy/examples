@@ -30,7 +30,7 @@ import brainpy.math as bm
 
 
 # %%
-class CANN2D(bp.NeuGroup):
+class CANN2D(bp.dyn.NeuGroup):
   def __init__(self, length, tau=1., k=8.1, a=0.5, A=10., J0=4.,
                z_min=-bm.pi, z_max=bm.pi, name=None):
     super(CANN2D, self).__init__(size=(length, length), name=name)
@@ -110,7 +110,7 @@ Iext, length = bp.inputs.section_input(
     durations=[10., 20.], 
     return_length=True
 )
-runner = bp.StructRunner(cann,
+runner = bp.dyn.DSRunner(cann,
                          inputs=['input', Iext, 'iter'],
                          monitors=['r'],
                          dyn_vars=cann.vars())
@@ -131,7 +131,7 @@ length = 20
 positions = bp.inputs.ramp_input(-bm.pi, bm.pi, duration=length, t_start=0)
 positions = bm.stack([positions, positions]).T
 Iext = bm.vmap(cann.get_stimulus_by_pos)(positions)
-runner = bp.StructRunner(cann,
+runner = bp.dyn.DSRunner(cann,
                          inputs=['input', Iext, 'iter'],
                          monitors=['r'],
                          dyn_vars=cann.vars())
@@ -140,7 +140,7 @@ runner.run(length)
 # %%
 bp.visualize.animate_2D(values=runner.mon.r,
                         net_size=(cann.length, cann.length),
-                       show=False)
+                        show=False)
 
 # %% [markdown]
 # ![tracking](../images/cann_2d_tracking.gif)

@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.5
+#       jupytext_version: 1.11.4
 #   kernelspec:
 #     display_name: brainpy
 #     language: python
@@ -37,7 +37,7 @@ bp.math.set_platform('cpu')
 
 
 # %%
-class CUBA(bp.Network):
+class CUBA(bp.dyn.Network):
   def __init__(self, scale=1.0, method='exp_auto'):
     # network size
     num_exc = int(3200 * scale)
@@ -67,7 +67,7 @@ net = CUBA()
 
 # %%
 # simulation
-runner = bp.StructRunner(net,
+runner = bp.dyn.DSRunner(net,
                          monitors=['E.spike'],
                          inputs=[('E.input', 20.), ('I.input', 20.)])
 t = runner.run(100.)

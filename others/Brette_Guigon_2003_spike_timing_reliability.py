@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 assert bp.__version__ >= '2.0.2'
 
 
-class ExternalInput(bp.DynamicalSystem):
+class ExternalInput(bp.dyn.DynamicalSystem):
   def __init__(self, num):
     super(ExternalInput, self).__init__()
 
@@ -23,7 +23,7 @@ class ExternalInput(bp.DynamicalSystem):
     self.I = bm.Variable(bm.zeros(num))
 
 
-class LinearLeakyModel(bp.NeuGroup):
+class LinearLeakyModel(bp.dyn.NeuGroup):
   r"""A nonlinear leaky model.
 
   .. math::
@@ -58,7 +58,7 @@ class LinearLeakyModel(bp.NeuGroup):
     self.V.value = bm.where(self.spike, self.Vr, self.V)
 
 
-class NonlinearLeakyModel(bp.NeuGroup):
+class NonlinearLeakyModel(bp.dyn.NeuGroup):
   r"""A nonlinear leaky model.
   
   .. math::
@@ -94,7 +94,7 @@ class NonlinearLeakyModel(bp.NeuGroup):
     self.V.value = bm.where(self.spike, self.Vr, self.V)
 
 
-class NonLeakyModel(bp.NeuGroup):
+class NonLeakyModel(bp.dyn.NeuGroup):
   r"""A non-leaky model.
 
   .. math::
@@ -130,7 +130,7 @@ class NonLeakyModel(bp.NeuGroup):
     self.V.value = bm.where(self.spike, self.Vr, self.V)
 
 
-class PerfectIntegrator(bp.NeuGroup):
+class PerfectIntegrator(bp.dyn.NeuGroup):
   r"""Integrate inputs.
 
   .. math::
@@ -184,7 +184,7 @@ def figure6(sigma=0.):
   model = LinearLeakyModel(num, inputs=Noise(num))
   model.sigma = sigma
 
-  runner = bp.StructRunner(model, monitors=['inputs.B', 'spike'])
+  runner = bp.dyn.DSRunner(model, monitors=['inputs.B', 'spike'])
   runner.run(2000.)
 
   fig, gs = bp.visualize.get_figure(2, 1, 4, 12)
@@ -218,7 +218,7 @@ def figure7(sigma):
   model = NonlinearLeakyModel(num, inputs=Noise(num))
   model.sigma = sigma
 
-  runner = bp.StructRunner(model, monitors=['inputs.B', 'spike'])
+  runner = bp.dyn.DSRunner(model, monitors=['inputs.B', 'spike'])
   runner.run(1000.)
 
   fig, gs = bp.visualize.get_figure(2, 1, 4, 8)
@@ -251,7 +251,7 @@ def figure8(sigma):
   model.V.value = bm.random.uniform(model.Vr, model.Vt, model.num)
   model.sigma = sigma
 
-  runner = bp.StructRunner(model, monitors=['inputs.B', 'spike'])
+  runner = bp.dyn.DSRunner(model, monitors=['inputs.B', 'spike'])
   runner.run(1000.)
 
   fig, gs = bp.visualize.get_figure(2, 1, 4, 8)
@@ -286,7 +286,7 @@ def figure9(sigma):
   model = LinearLeakyModel(num, inputs=Noise(num))
   model.sigma = sigma
 
-  runner = bp.StructRunner(model, monitors=['inputs.B', 'spike'])
+  runner = bp.dyn.DSRunner(model, monitors=['inputs.B', 'spike'])
   runner.run(2000.)
 
   fig, gs = bp.visualize.get_figure(2, 1, 4, 12)
@@ -324,7 +324,7 @@ def figure10():
   num = 500
   model = NonLeakyModel(num, inputs=Noise(num))
 
-  runner = bp.StructRunner(model, monitors=['inputs.B', 'spike'])
+  runner = bp.dyn.DSRunner(model, monitors=['inputs.B', 'spike'])
   runner.run(1000.)
 
   fig, gs = bp.visualize.get_figure(2, 1, 4, 8)
@@ -360,7 +360,7 @@ def figure11(sigma):
   model = PerfectIntegrator(num, inputs=Noise(num))
   model.sigma = sigma
 
-  runner = bp.StructRunner(model, monitors=['inputs.B', 'spike'])
+  runner = bp.dyn.DSRunner(model, monitors=['inputs.B', 'spike'])
   runner.run(1000.)
 
   fig, gs = bp.visualize.get_figure(2, 1, 4, 8)

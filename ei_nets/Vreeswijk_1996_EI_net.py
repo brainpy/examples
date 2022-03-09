@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.5
+#       jupytext_version: 1.11.4
 #   kernelspec:
 #     display_name: brainpy
 #     language: python
@@ -66,7 +66,7 @@ bm.set_platform('cpu')
 
 
 # %%
-class EINet(bp.Network):
+class EINet(bp.dyn.Network):
   def __init__(self, num_exc, num_inh, prob, JE, JI):
     # neurons
     pars = dict(V_rest=-52., V_th=-50., V_reset=-60., tau=10., tau_ref=0.)
@@ -96,7 +96,7 @@ JI = -1 / bp.math.sqrt(prob * num_inh)
 # %%
 net = EINet(num_exc, num_inh, prob=prob, JE=JE, JI=JI)
 
-runner = bp.StructRunner(net,
+runner = bp.dyn.DSRunner(net,
                          monitors=['E.spike'],
                          inputs=[('E.input', Ib), ('I.input', Ib)])
 t = runner.run(1000.)

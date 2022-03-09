@@ -41,7 +41,7 @@ import brainpy.math as bm
 
 
 # %%
-class JansenRitModel(bp.DynamicalSystem):
+class JansenRitModel(bp.dyn.DynamicalSystem):
   def __init__(self, num, C=135., method='exp_auto'):
     super(JansenRitModel, self).__init__()
 
@@ -109,7 +109,7 @@ def simulation(duration=5.):
   # random input uniformly distributed between 120 and 320 pulses per second
   all_ps = bm.random.uniform(120, 320, size=(int(duration / dt), 1))
   jrm = JansenRitModel(num=6, C=bm.array([68., 128., 135., 270., 675., 1350.]))
-  runner = bp.StructRunner(jrm,
+  runner = bp.dyn.DSRunner(jrm,
                            monitors=['y0', 'y1', 'y2', 'y3', 'y4', 'y5'],
                            inputs=['p', all_ps, 'iter', '='],
                            dt=dt)

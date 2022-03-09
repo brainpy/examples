@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.5
+#       jupytext_version: 1.11.4
 #   kernelspec:
 #     display_name: brainpy
 #     language: python
@@ -70,7 +70,6 @@
 # The threshold value of the model neuron is between $–70mV$ and $-50mV$, and it is dynamic, as in biological neurons.
 
 # %%
-import brainmodels
 import brainpy as bp
 
 import matplotlib.pyplot as plt
@@ -121,11 +120,11 @@ import matplotlib.pyplot as plt
 # While the inputison, the neuron continues to ﬁre a train of spikes. This kind of behavior, called tonic spiking, can be observed in the three types of cortical neurons: regular spiking (RS) excitatory neurons,low threshold spiking(LTS),and fast spiking (FS) inhibitory neurons.Continuous ﬁring of such neurons indicate that there is a persistent input.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.02, 0.40, -65.0, 2.0
 
 current = bp.inputs.section_input(values=[0., 10.], durations=[50, 150])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=200.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -153,11 +152,11 @@ plt.show()
 # A neuron may fire only a single spike at the onset of the input, and remain quiescent afterwards. Such a response is called phasic spiking, and it is useful for detection of the beginning of stimulation.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.02, 0.25, -65.0, 6.0
 
 current = bp.inputs.section_input(values=[0., 1.], durations=[50, 150])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=200.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -184,11 +183,11 @@ plt.show()
 # Some neurons, such as the chattering neurons in cat neocortex, ﬁre periodic bursts of spikes when stimulated. The interburst frequency may be as high as 50 Hz, and it is believed that such neurons contribute to the gamma-frequency oscillations in the brain.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.02, 0.20, -50.0, 2.0
 
 current = bp.inputs.section_input(values=[0., 15.], durations=[50, 150])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=200.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -215,11 +214,11 @@ plt.show()
 # Similarly to the phasic spikers, some neurons are phasic bursters. Such neurons report the beginning of the stimulation by transmitting a burst.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.02, 0.25, -55.0, 0.05
 
 current = bp.inputs.section_input(values=[0., 1.], durations=[50, 150])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=200.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -247,11 +246,11 @@ plt.show()
 # Intrinsically bursting (IB) excitatory neurons in mammalian neocortex can exhibit a mixed type of spiking activity. They ﬁre a phasic burst at the onset of stimulation and then switch to the tonic spiking mode.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.02, 0.20, -55.0, 4.0
 
 current = bp.inputs.section_input(values=[0., 10.], durations=[50, 150])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=200.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -278,11 +277,11 @@ plt.show()
 # The most common type of excitatory neuron in mammalian neocortex, namely the regular spiking (RS) cell, ﬁres tonic spikes with decreasing frequency. That is, the frequency is relatively high at the onset of stimulation, and then it adapts. Low-threshold spiking (LTS) inhibitory neurons also have this property. 
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.01, 0.20, -65.0, 8.0
 
 current = bp.inputs.section_input(values=[0., 30.], durations=[50, 150])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=200.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -309,11 +308,11 @@ plt.show()
 # The frequency of tonic spiking of neocortical RS excitatory neurons depends on the strength of the input, and it may span the range from 2 Hz to 200 Hz, or even greater. The ability to ﬁre low-frequency spikes when the input is weak (but superthreshold) is called Class 1 excitability.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.02, -0.1, -55.0, 6.0
 
 current = bp.inputs.ramp_input(c_start=0., c_end=80., t_start=50., t_end=200., duration=250)
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=250.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -340,11 +339,11 @@ plt.show()
 # Some neurons cannot ﬁre low-frequency spike trains. That is, they are either quiescent or ﬁre a train of spikes with a certain relatively large frequency, say 40 Hz. Such neurons are called Class 2 excitable.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.20, 0.26, -65.0, 0.0
 
 current = bp.inputs.ramp_input(c_start=0., c_end=10., t_start=50., t_end=200., duration=250)
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=250.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -371,11 +370,11 @@ plt.show()
 # Most cortical neurons ﬁre spikes with a delay that depends on the strength of the input signal. For a relatively weak but superthreshold input, the delay, also called spike latency, can be quite large. 
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.02, 0.20, -65.0, 6.0
 
 current = bp.inputs.section_input(values=[0., 50., 0.], durations=[15, 1, 15])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=31.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -402,11 +401,11 @@ plt.show()
 # Practically every brain structure has neurons capable of exhibiting oscillatory potentials. The frequency of such oscillations play an important role and such neurons act as bandpass ﬁlters.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.05, 0.26, -60.0, 0.0
 
 current = bp.inputs.section_input(values=[0., 50., 0.], durations=[15, 1, 200])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=216.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -433,11 +432,11 @@ plt.show()
 # When a neuron receives and then is released from an inhibitory input, it may ﬁre a post-inhibitory (rebound) spike. This phenomenon is related to the anodal break excitation in excitable membranes. Many spiking neurons can ﬁre in response to brief inhibitory inputs thereby blurring the difference between excitation and inhibition.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.03, 0.25, -60.0, 4.0
 
 current = bp.inputs.section_input(values=[7., 0., 7.], durations=[10, 5, 40])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=55.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -464,11 +463,11 @@ plt.show()
 # After ﬁring a spike, the membrane potential of a neuron may exhibit a prolonged after-hyperpolarization (AHP)),or a prolonged depolarized after-potential (DAP). Such DAPs can appear because of dendritic inﬂuence, because of a high-threshold inward currents activated during the spike, or because of an interplay between subthreshold voltage-gated currents.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 1.00, 0.20, -60.0, -21.0
 
 current = bp.inputs.section_input(values=[0., 23, 0], durations=[7, 1, 50])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=58.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -495,12 +494,12 @@ plt.show()
 # Due to the resonance phenomenon, neurons having oscillatory potentials can respond selectively to the inputs having frequency content similar to the frequency of subthreshold oscillations. Such neurons can implement frequency-modulated (FM) interactions and multiplexing of signal.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.10, 0.26, -60.0, -1.0
 
 current = bp.inputs.section_input(values=[-1, 0., -1, 0, -1, 0, -1, 0, -1],
                                   durations=[10, 10, 10, 10, 100, 10, 30, 20, 30])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=230.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -527,12 +526,12 @@ plt.show()
 # Neurons without oscillatory potentials act as integrators. They prefer high-frequency input; the higher the frequency the more likely they ﬁre.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.02, -0.1, -55.0, 6.0
 
 current = bp.inputs.section_input(values=[0, 48, 0, 48, 0, 48, 0, 48, 0],
                                   durations=[19, 1, 1, 1, 28, 1, 1, 1, 56])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=109.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -559,12 +558,12 @@ plt.show()
 # Biological neurons have a variable threshold that depends on the prior activity of the neurons.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.03, 0.25, -60.0, 4.0
 
 current = bp.inputs.section_input(values=[0, 5, 0, -5, 0, 5, 0],
                                   durations=[13, 3, 78, 2, 2, 3, 13])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=114.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -591,11 +590,11 @@ plt.show()
 # Some neurons can exhibit two stable modes of operation: resting and tonic spiking (or even bursting). An excitatory or inhibitory pulse can switch between the modes, thereby creating an interesting possibility for bistability and short-term memory.
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 1.00, 1.50, -60.0, 0.0
 
 current = bp.inputs.section_input(values=[0., 5., 0, 5, 0], durations=[10, 1, 10, 1, 10])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=32.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -638,11 +637,11 @@ plt.show()
 #
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.02, 0.2, -65, 8
 
 current = bp.inputs.section_input(values=[0., 15.], durations=[50, 250])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=300.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -667,11 +666,11 @@ plt.show()
 # ### Intrinsically Bursting (IB)
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.02, 0.2, -55, 4
 
 current = bp.inputs.section_input(values=[0., 15.], durations=[50, 250])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=300.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -696,11 +695,11 @@ plt.show()
 # ### Chattering (CH)
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.02, 0.2, -50, 2
 
 current = bp.inputs.section_input(values=[0., 10.], durations=[50, 350])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=400.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -725,11 +724,11 @@ plt.show()
 # ### Fast Spiking (FS)
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.1, 0.2, -65, 2
 
 current = bp.inputs.section_input(values=[0., 10.], durations=[50, 150])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=200.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -754,11 +753,11 @@ plt.show()
 # ### Thalamo-cortical (TC)
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.02, 0.25, -65, 0.05
 
 current = bp.inputs.section_input(values=[0., 10.], durations=[50, 100])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=150.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -783,11 +782,11 @@ plt.show()
 # ### Resonator (RZ)
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.1, 0.26, -65, 2
 
 current = bp.inputs.section_input(values=[0., 5.], durations=[100, 300])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=400.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -812,11 +811,11 @@ plt.show()
 # ### Low-threshold Spiking (LTS)
 
 # %%
-neu = brainmodels.neurons.Izhikevich(1)
+neu = bp.dyn.Izhikevich(1)
 neu.a, neu.b, neu.c, neu.d = 0.02, 0.25, -65, 2
 
 current = bp.inputs.section_input(values=[0., 10.], durations=[50, 150])
-runner = bp.StructRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
+runner = bp.dyn.DSRunner(neu, inputs=['input', current, 'iter'], monitors=['V', 'u'])
 runner.run(duration=200.)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))

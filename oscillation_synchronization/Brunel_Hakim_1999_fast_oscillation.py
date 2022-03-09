@@ -45,7 +45,7 @@ sparseness = float(C) / N
 
 
 # %%
-class LIF(bp.NeuGroup):
+class LIF(bp.dyn.NeuGroup):
   def __init__(self, size, **kwargs):
     super(LIF, self).__init__(size, **kwargs)
 
@@ -73,12 +73,12 @@ class LIF(bp.NeuGroup):
 
 # %%
 group = LIF(N)
-syn = bp.models.DeltaSynapse(group, group, conn=bp.conn.FixedProb(sparseness),
-                             delay=delta, post_has_ref=True, post_key='V', w=-J)
-net = bp.Network(syn, group=group)
+syn = bp.dyn.DeltaSynapse(group, group, conn=bp.conn.FixedProb(sparseness),
+                          delay=delta, post_has_ref=True, post_key='V', w=-J)
+net = bp.dyn.Network(syn, group=group)
 
 # %%
-runner = bp.ReportRunner(net, monitors=['group.spike'], jit=True)
+runner = bp.dyn.DSRunner(net, monitors=['group.spike'])
 runner.run(duration)
 bp.visualize.raster_plot(runner.mon.ts, runner.mon['group.spike'],
                          xlim=(0, duration), show=True)

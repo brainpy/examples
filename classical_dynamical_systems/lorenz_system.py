@@ -34,8 +34,8 @@ dz = lambda z, t, x, y: x * y - beta * z
 
 integral = bp.odeint(bp.JointEq([dx, dy, dz]), method='exp_auto')
 
-runner = bp.IntegratorRunner(integral, monitors=['x', 'y', 'z'],
-                             inits=dict(x=8, y=1, z=1), dt=0.01)
+runner = bp.integrators.IntegratorRunner(integral, monitors=['x', 'y', 'z'],
+                                         inits=dict(x=8, y=1, z=1), dt=0.01)
 runner.run(100)
 
 fig = plt.figure()

@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.5
+#       jupytext_version: 1.11.4
 #   kernelspec:
 #     display_name: brainpy
 #     language: python
@@ -28,7 +28,7 @@ import numpy as np
 
 
 # %%
-class HindmarshRose(bp.DynamicalSystem):
+class HindmarshRose(bp.dyn.DynamicalSystem):
   def __init__(self, method='exp_auto'):
     super(HindmarshRose, self).__init__()
 
@@ -74,7 +74,7 @@ class HindmarshRose(bp.DynamicalSystem):
 # %%
 model = HindmarshRose()
 
-runner = bp.StructRunner(model, monitors=['x', 'y', 'z'], inputs=['I', 1.5])
+runner = bp.dyn.DSRunner(model, monitors=['x', 'y', 'z'], inputs=['I', 1.5])
 runner.run(2000.)
 bp.visualize.line_plot(runner.mon.ts, runner.mon.x, legend='x', show=True)
 

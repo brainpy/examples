@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.5
+#       jupytext_version: 1.11.4
 #   kernelspec:
 #     display_name: brainpy
 #     language: python
@@ -54,7 +54,7 @@ delay = 5.0  # ms
 # ------------
 
 
-class Groups(bp.NeuGroup):
+class Groups(bp.dyn.NeuGroup):
   def __init__(self, size, **kwargs):
     super(Groups, self).__init__(size, **kwargs)
 
@@ -87,7 +87,7 @@ class Groups(bp.NeuGroup):
 # synaptic  model
 # ---------------
 
-class SynBetweenGroups(bp.TwoEndConn):
+class SynBetweenGroups(bp.dyn.TwoEndConn):
   def __init__(self, group, ext_group, **kwargs):
     super(SynBetweenGroups, self).__init__(group, group, **kwargs)
 
@@ -117,7 +117,7 @@ class SynBetweenGroups(bp.TwoEndConn):
 # Spike time group
 # ----------------
 
-class SpikeTimeInput(bp.NeuGroup):
+class SpikeTimeInput(bp.dyn.NeuGroup):
   def __init__(self, size, times, indices, need_sort=1., **kwargs):
     super(SpikeTimeInput, self).__init__(size=size, **kwargs)
 
@@ -155,15 +155,15 @@ class SpikeTimeInput(bp.NeuGroup):
 # ---------------
 
 def run_network(spike_num=48):
-  bm.random.seed(1)
+  bm.random.seed(12345)
   times = bm.random.randn(spike_num) * spike_sigma + 20
   ext_group = SpikeTimeInput(spike_num, times=times, indices=bm.arange(spike_num))
   group = Groups(size=n_groups * group_size)
   syn_conn = SynBetweenGroups(group, ext_group)
-  net = bp.Network(ext_group=ext_group, syn_conn=syn_conn, group=group)
+  net = bp.dyn.Network(ext_group=ext_group, syn_conn=syn_conn, group=group)
 
   # simulation
-  runner = bp.StructRunner(net,
+  runner = bp.dyn.DSRunner(net,
                            monitors=['group.spike'],
                            dyn_vars=net.vars() + dict(rng=bm.random.DEFAULT))
   runner.run(duration)

@@ -121,7 +121,7 @@ class RNN(bp.layers.Module):
   def loss(self, xs, ys):
     hs, os = self.predict(xs)
     os = os.reshape((-1, os.shape[-1]))
-    loss = bm.losses.cross_entropy_loss(os, ys.flatten())
+    loss = bp.losses.cross_entropy_loss(os, ys.flatten())
     return loss, os
 
 
@@ -154,7 +154,7 @@ grad_f = bm.grad(net.loss,
 @bm.jit
 @bm.function(nodes=(net, opt))
 def train(xs, ys):
-  grads, (loss, os) = grad_f(xs, ys)
+  grads, loss, os = grad_f(xs, ys)
   opt.update(grads)
   return loss, os
 

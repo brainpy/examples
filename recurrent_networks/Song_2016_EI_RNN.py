@@ -76,7 +76,7 @@ batch_size = dataset.batch_size
 
 print(f'Input size = {input_size}')
 print(f'Output size = {output_size}')
-print(f'Bacth size = {batch_size}')
+print(f'Batch size = {batch_size}')
 
 
 # %% [markdown]

@@ -87,7 +87,7 @@ g_s = 4
 
 
 # %%
-class Model1(bp.DynamicalSystem):
+class Model1(bp.dyn.DynamicalSystem):
   def __init__(self, method='exp_auto'):
     super(Model1, self).__init__()
 
@@ -124,7 +124,7 @@ class Model1(bp.DynamicalSystem):
 
 # %%
 def run_and_plot1(model, duration, inputs=None, plot_duration=None):
-  runner = bp.StructRunner(model, inputs=inputs, monitors=['V', 'n', 'gc', 'I'])
+  runner = bp.dyn.DSRunner(model, inputs=inputs, monitors=['V', 'n', 'gc', 'I'])
   runner.run(duration)
 
   fig, gs = bp.visualize.get_figure(5, 1, 2, 12)
@@ -208,7 +208,7 @@ theta_S = 10  # mV
 
 
 # %%
-class Model2(bp.DynamicalSystem):
+class Model2(bp.dyn.DynamicalSystem):
   def __init__(self, method='exp_auto'):
     super(Model2, self).__init__()
 
@@ -252,7 +252,7 @@ class Model2(bp.DynamicalSystem):
 
 # %%
 def run_and_plot2(model, duration, inputs=None, plot_duration=None):
-  runner = bp.StructRunner(model, inputs=inputs, monitors=['V', 'S'])
+  runner = bp.dyn.DSRunner(model, inputs=inputs, monitors=['V', 'S'])
   runner.run(duration)
 
   fig, gs = bp.visualize.get_figure(5, 1, 2, 12)

@@ -23,7 +23,6 @@
 # %%
 import matplotlib.pyplot as plt
 import brainpy as bp
-import brainmodels
 
 
 # %% [markdown]
@@ -62,7 +61,7 @@ import brainmodels
 
 # %%
 def run(model, duration, I_ext):
-  runner = bp.StructRunner(model,
+  runner = bp.dyn.DSRunner(model,
                            inputs=('input', I_ext, 'iter'),
                            monitors=['V', 'V_th'])
   runner.run(duration)
@@ -97,7 +96,7 @@ def run(model, duration, I_ext):
 
 # %%
 Iext, duration = bp.inputs.constant_current([(1.5, 200.)])
-neu = brainmodels.neurons.GIF(1)
+neu = bp.dyn.GIF(1)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -105,7 +104,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(1.+1e-6, 500.)])
-neu = brainmodels.neurons.GIF(1)
+neu = bp.dyn.GIF(1)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -113,7 +112,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(2., 200.)])
-neu = brainmodels.neurons.GIF(1, a=0.005)
+neu = bp.dyn.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -121,7 +120,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(1.5, 500.)])
-neu = brainmodels.neurons.GIF(1, a=0.005)
+neu = bp.dyn.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -134,7 +133,7 @@ Iext, duration = bp.inputs.constant_current([(1.5, 100.),
                                              (1., 100.), 
                                              (1.5, 100.), 
                                              (0., 100.)])
-neu = brainmodels.neurons.GIF(1, a=0.005)
+neu = bp.dyn.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -147,7 +146,7 @@ Iext, duration = bp.inputs.constant_current([(1.5, 20.),
                                              (0., 20.), 
                                              (1.5, 20.), 
                                              (0., 140.)])
-neu = brainmodels.neurons.GIF(1, a=0.005)
+neu = bp.dyn.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -155,7 +154,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(0, 50.), (-3.5, 750.), (0., 200.)])
-neu = brainmodels.neurons.GIF(1, a=0.005)
+neu = bp.dyn.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -163,7 +162,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(2 * (1. + 1e-6), 200.)])
-neu = brainmodels.neurons.GIF(1, a=0.005)
+neu = bp.dyn.GIF(1, a=0.005)
 neu.V_th[:] = -30.
 run(neu, duration, Iext)
 
@@ -179,7 +178,7 @@ Iext, duration = bp.inputs.constant_current([(1.5, 20.),
                                              (0., 30.), 
                                              (1.5, 20.), 
                                              (0., 30.)])
-neu = brainmodels.neurons.GIF(1, a=0.005)
+neu = bp.dyn.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -190,7 +189,7 @@ Iext, duration = bp.inputs.constant_current([(1.5, 100.),
                                              (1.7, 400.),
                                              (1.5, 100.), 
                                              (1.7, 400.)])
-neu = brainmodels.neurons.GIF(1, a=0.005)
+neu = bp.dyn.GIF(1, a=0.005)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -198,7 +197,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(-1., 400.)])
-neu = brainmodels.neurons.GIF(1, V_th_reset=-60., V_th_inf=-120.)
+neu = bp.dyn.GIF(1, V_th_reset=-60., V_th_inf=-120.)
 neu.V_th[:] = -50.
 run(neu, duration, Iext)
 
@@ -207,7 +206,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(-1., 400.)])
-neu = brainmodels.neurons.GIF(1, V_th_reset=-60., V_th_inf=-120., A1=10., 
+neu = bp.dyn.GIF(1, V_th_reset=-60., V_th_inf=-120., A1=10., 
                               A2=-0.6)
 neu.V_th[:] = -50.
 run(neu, duration, Iext)
@@ -217,7 +216,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(2., 500.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, A1=10., A2=-0.6)
+neu = bp.dyn.GIF(1, a=0.005, A1=10., A2=-0.6)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -225,7 +224,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(1.5, 500.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, A1=10., A2=-0.6)
+neu = bp.dyn.GIF(1, a=0.005, A1=10., A2=-0.6)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -233,7 +232,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(0, 100.), (-3.5, 500.), (0., 400.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, A1=10., A2=-0.6)
+neu = bp.dyn.GIF(1, a=0.005, A1=10., A2=-0.6)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -241,7 +240,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(2., 500.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, A1=5., A2=-0.3)
+neu = bp.dyn.GIF(1, a=0.005, A1=5., A2=-0.3)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -249,7 +248,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(2., 15.), (0, 185.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, A1=5., A2=-0.3)
+neu = bp.dyn.GIF(1, a=0.005, A1=5., A2=-0.3)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -257,7 +256,7 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(5., 10.), (0., 90.), (5., 10.), (0., 90.)])
-neu = brainmodels.neurons.GIF(1, A1=8., A2=-0.1)
+neu = bp.dyn.GIF(1, A1=8., A2=-0.1)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -272,7 +271,7 @@ Iext, duration = bp.inputs.constant_current([(5., 10.),
                                              (0., 90.), 
                                              (4., 10.), 
                                              (0., 290.)])
-neu = brainmodels.neurons.GIF(1, a=0.005, A1=-3., A2=0.5)
+neu = bp.dyn.GIF(1, a=0.005, A1=-3., A2=0.5)
 run(neu, duration, Iext)
 
 # %% [markdown]
@@ -280,5 +279,5 @@ run(neu, duration, Iext)
 
 # %%
 Iext, duration = bp.inputs.constant_current([(8., 2.), (0, 48.)])
-neu = brainmodels.neurons.GIF(1, a=-0.08)
+neu = bp.dyn.GIF(1, a=-0.08)
 run(neu, duration, Iext)

@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.5
+#       jupytext_version: 1.11.4
 #   kernelspec:
 #     display_name: brainpy
 #     language: python
@@ -43,7 +43,7 @@ inputs = bm.linspace(2., 4., num)
 
 
 # %%
-class LIF(bp.NeuGroup):
+class LIF(bp.dyn.NeuGroup):
   def __init__(self, size, **kwargs):
     super(LIF, self).__init__(size, **kwargs)
     
@@ -62,7 +62,7 @@ class LIF(bp.NeuGroup):
 
 # %%
 group = LIF(num)
-runner = bp.StructRunner(group, monitors=['spike'])
+runner = bp.dyn.DSRunner(group, monitors=['spike'])
 
 # %%
 t = runner.run(duration=5 * 1000.)

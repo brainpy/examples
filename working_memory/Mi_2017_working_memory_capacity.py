@@ -24,12 +24,11 @@
 #
 
 # %%
-import matplotlib.colors as mcolors
-import matplotlib.pyplot as plt
-
-# %%
 import brainpy as bp
 import brainpy.math as bm
+# %%
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 
 bm.enable_x64()
 bm.set_platform('cpu')
@@ -63,7 +62,7 @@ duration = 2.500  # [s]
 # %%
 # the excitatory cluster model and the inhibitory pool model
 
-class WorkingMemoryModel(bp.DynamicalSystem):
+class WorkingMemoryModel(bp.dyn.DynamicalSystem):
   def __init__(self, **kwargs):
     super(WorkingMemoryModel, self).__init__(**kwargs)
 
@@ -107,7 +106,7 @@ for i in range(stimulus_num):
 
 # %%
 # running
-runner = bp.StructRunner(WorkingMemoryModel(),
+runner = bp.dyn.DSRunner(WorkingMemoryModel(),
                          inputs=['input', I_inputs, 'iter'],
                          monitors=['u', 'x', 'r', 'h'],
                          dt=dt)

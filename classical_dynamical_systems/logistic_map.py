@@ -20,7 +20,7 @@ import brainpy.math as bm
 import matplotlib.pyplot as plt
 
 
-class LogisticMap(bp.NeuGroup):
+class LogisticMap(bp.dyn.NeuGroup):
   def __init__(self, num, mu0=2., mu1=4.):
     super(LogisticMap, self).__init__(num)
 
@@ -33,7 +33,7 @@ class LogisticMap(bp.NeuGroup):
 
 map = LogisticMap(10000, 2, 4)
 
-runner = bp.StructRunner(map, monitors=['x'], dt=1)
+runner = bp.dyn.DSRunner(map, monitors=['x'], dt=1)
 runner.run(1100)
 
 plt.plot(map.mu, runner.mon.x[1000:].T, ',k', alpha=0.25)

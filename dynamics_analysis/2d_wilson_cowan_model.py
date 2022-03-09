@@ -10,7 +10,7 @@ bp.math.set_platform('cpu')
 bp.math.enable_x64()
 
 
-class WilsonCowanModel(bp.DynamicalSystem):
+class WilsonCowanModel(bp.dyn.DynamicalSystem):
   def __init__(self, num, method='exp_auto'):
     super(WilsonCowanModel, self).__init__()
 
@@ -66,7 +66,7 @@ model.e[:] = [-0.1, 0.4]
 model.i[:] = [0.5, 0.6]
 
 # simulation
-runner = bp.StructRunner(model, monitors=['e', 'i'])
+runner = bp.dyn.DSRunner(model, monitors=['e', 'i'])
 runner.run(100)
 
 fig, gs = bp.visualize.get_figure(2, 1, 3, 8)

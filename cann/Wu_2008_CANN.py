@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.5
+#       jupytext_version: 1.11.4
 #   kernelspec:
 #     display_name: brainpy
 #     language: python
@@ -43,7 +43,7 @@ import brainpy.math as bm
 
 
 # %%
-class CANN1D(bp.NeuGroup):
+class CANN1D(bp.dyn.NeuGroup):
   def __init__(self, num, tau=1., k=8.1, a=0.5, A=10., J0=4.,
                z_min=-bm.pi, z_max=bm.pi, **kwargs):
     super(CANN1D, self).__init__(size=num, **kwargs)
@@ -114,7 +114,7 @@ I1 = cann.get_stimulus_by_pos(0.)
 Iext, duration = bp.inputs.section_input(values=[0., I1, 0.],
                                          durations=[1., 8., 8.],
                                          return_length=True)
-runner = bp.StructRunner(cann,
+runner = bp.dyn.DSRunner(cann,
                          inputs=['input', Iext, 'iter'],
                          monitors=['u'],
                          dyn_vars=cann.vars())
@@ -149,7 +149,7 @@ Iext[:num1] = cann.get_stimulus_by_pos(0.5)
 Iext[num1:num1 + num2] = cann.get_stimulus_by_pos(0.)
 Iext[num1:num1 + num2] += 0.1 * cann.A * bm.random.randn(num2, *cann.size)
 
-runner = bp.StructRunner(cann,
+runner = bp.dyn.DSRunner(cann,
                          inputs=('input', Iext, 'iter'),
                          monitors=['u'],
                          dyn_vars=cann.vars())
@@ -181,7 +181,7 @@ position[num1: num1 + num2] = bm.linspace(0., 12., num2)
 position[num1 + num2:] = 12.
 position = position.reshape((-1, 1))
 Iext = cann.get_stimulus_by_pos(position)
-runner = bp.StructRunner(cann,
+runner = bp.dyn.DSRunner(cann,
                          inputs=('input', Iext, 'iter'),
                          monitors=['u'],
                          dyn_vars=cann.vars())

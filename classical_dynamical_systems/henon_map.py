@@ -12,7 +12,7 @@ import brainpy.math as bm
 import matplotlib.pyplot as plt
 
 
-class HenonMap(bp.DynamicalSystem):
+class HenonMap(bp.dyn.DynamicalSystem):
   """Hénon map."""
 
   def __init__(self, num, a=1.4, b=0.3):
@@ -36,7 +36,7 @@ class HenonMap(bp.DynamicalSystem):
 map = HenonMap(4)
 map.a = bm.asarray([0.5, 1.0, 1.4, 2.0])
 
-runner = bp.StructRunner(map, monitors=['x', 'y'], dt=1)
+runner = bp.dyn.DSRunner(map, monitors=['x', 'y'], dt=1)
 runner.run(10000)
 
 fig, gs = bp.visualize.get_figure(4, 1, 4, 6)
@@ -56,7 +56,7 @@ map = HenonMap(1)
 map.a = 0.2
 map.b = 0.9991
 
-runner = bp.StructRunner(map, monitors=['x', 'y'], dt=1)
+runner = bp.dyn.DSRunner(map, monitors=['x', 'y'], dt=1)
 runner.run(10000)
 plt.plot(runner.mon.x[:, 0], runner.mon.y[:, 0], ',k')
 plt.xlabel('x')
@@ -69,7 +69,7 @@ map = HenonMap(1)
 map.a = 0.2
 map.b = -0.9999
 
-runner = bp.StructRunner(map, monitors=['x', 'y'], dt=1)
+runner = bp.dyn.DSRunner(map, monitors=['x', 'y'], dt=1)
 runner.run(10000)
 plt.plot(runner.mon.x[:, 0], runner.mon.y[:, 0], ',k')
 plt.xlabel('x')

@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.5
+#       jupytext_version: 1.11.4
 #   kernelspec:
 #     display_name: brainpy
 #     language: python
@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 
 
 # %%
-class GJCoupledFHN(bp.DynamicalSystem):
+class GJCoupledFHN(bp.dyn.DynamicalSystem):
   def __init__(self, num=2, method='exp_auto'):
     super(GJCoupledFHN, self).__init__()
 
@@ -78,7 +78,7 @@ def analyze_net(num=2, gjw=0.01, Iext=bm.asarray([0., 0.6])):
     model.Iext[:] = Iext
     
     # simulation
-    runner = bp.StructRunner(model, monitors=['V'])
+    runner = bp.dyn.DSRunner(model, monitors=['V'])
     runner.run(300.)
     bp.visualize.line_plot(runner.mon.ts, runner.mon.V, legend='V',
                            plot_ids=list(range(model.num)), show=True)

@@ -18,7 +18,7 @@ assert bp.__version__ >= '2.0.2'
 bm.set_dt(0.05)
 
 
-class MackeyGlassEq(bp.NeuGroup):
+class MackeyGlassEq(bp.dyn.NeuGroup):
   def __init__(self, num, beta=2., gamma=1., tau=2., n=9.65):
     super(MackeyGlassEq, self).__init__(num)
 
@@ -48,7 +48,7 @@ class MackeyGlassEq(bp.NeuGroup):
 eq = MackeyGlassEq(1, beta=0.2, gamma=0.1, tau=17, n=10)
 # eq = MackeyGlassEq(1, )
 
-runner = bp.StructRunner(eq, monitors=['x_latest', 'x_oldest'])
+runner = bp.dyn.DSRunner(eq, monitors=['x_latest', 'x_oldest'])
 runner.run(1000)
 
 plt.plot(runner.mon.x_latest[:, 0], runner.mon.x_oldest[:, 0])
