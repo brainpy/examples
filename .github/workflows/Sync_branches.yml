@@ -1,5 +1,8 @@
 name: Sync multiple branches
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
