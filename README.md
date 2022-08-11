@@ -1,3 +1,3 @@
 # BrainExamples
-Examples of BrainPy (>=2.0.0)
+Examples of BrainPy (>=2.2.0)
 
