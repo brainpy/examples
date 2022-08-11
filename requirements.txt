@@ -1,10 +1,1 @@
-brainpy
-
-# docs
-pandoc
-docutils
-Jinja2
-sphinx
-nbsphinx
-sphinx_rtd_theme>=1.0.0
-
+brainpy>=2.2.0
