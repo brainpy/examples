@@ -325,7 +325,7 @@ class CorticalMicrocircuit(bp.dyn.Network):
 
 
 bm.random.seed()
-net = CorticalMicrocircuit(conn_type=2, poisson_freq=8., stim_type=1, bg_type=0)
+net = CorticalMicrocircuit(conn_type=1, poisson_freq=8., stim_type=1, bg_type=0)
 sps_monitors = [f'{n}.spike' for n in net.layer_name[:-1]]
 runner = bp.StructRunner(net, monitors=sps_monitors)
 runner.run(1000.)

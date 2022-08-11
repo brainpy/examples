@@ -12,10 +12,10 @@ jobs:
     steps:
       - uses: actions/checkout@main
 
-      - name: Merge main -> brainpy-2.x
+      - name: Merge main -> brainpy-2.2.x
         uses: devmasx/merge-branch@v1.3.1
         with:
           type: now
           from_branch: main
-          target_branch: brainpy-2.x
+          target_branch: brainpy-2.2.x
           github_token: ${{ github.token }}
