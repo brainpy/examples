@@ -7,3 +7,5 @@
    Song_2016_EI_RNN.ipynb
    Masse_2019_STP_RNN.ipynb
    Yang_2020_RNN_Analysis.ipynb
+   Bellec_2020_eprop_evidence_accumulation.ipynb
+
