@@ -6,11 +6,11 @@ This repository contains examples of using `BrainPy <https://brainpy.readthedocs
 to implement various models about neurons, synapse, networks, etc. We welcome your implementation,
 which can be post through our `github <https://github.com/PKU-NIP-Lab/BrainPyExamples>`_ page.
 
-If you run some codes failed, please tell us.
+If you run some codes failed, please tell us through github issue: https://github.com/PKU-NIP-Lab/BrainPyExamples/issues
 
-- Ask questions: https://github.com/PKU-NIP-Lab/BrainPyExamples/issues
-- Add more examples: please fork our github, https://github.com/PKU-NIP-Lab/BrainPyExamples
+If you found these examples are useful for your research, please kindly cite us.
 
+If you want to add more examples, please fork our github: https://github.com/PKU-NIP-Lab/BrainPyExamples
 
 
 .. toctree::
