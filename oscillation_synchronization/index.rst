@@ -5,5 +5,8 @@
    Brunel_Hakim_1999_fast_oscillation.ipynb
    Diesmann_1999_synfire_chains.ipynb
    Li_2017_unified_thalamus_oscillation_model.ipynb
-
+   Susin_Destexhe_2021_gamma_oscillation_AI.ipynb
+   Susin_Destexhe_2021_gamma_oscillation_CHING.ipynb
+   Susin_Destexhe_2021_gamma_oscillation_ING.ipynb
+   Susin_Destexhe_2021_gamma_oscillation_PING.ipynb
 
