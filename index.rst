@@ -8,7 +8,7 @@ which can be post through our `github <https://github.com/PKU-NIP-Lab/BrainPyExa
 
 If you run some codes failed, please tell us through github issue: https://github.com/PKU-NIP-Lab/BrainPyExamples/issues
 
-If you found these examples are useful for your research, please kindly cite us.
+If you found these examples are useful for your research, please kindly `cite us <https://brainpy.readthedocs.io/en/latest/tutorial_FAQs/citing_and_publication.html>`_.
 
 If you want to add more examples, please fork our github: https://github.com/PKU-NIP-Lab/BrainPyExamples
 
