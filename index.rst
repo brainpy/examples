@@ -43,6 +43,13 @@ If you want to add more examples, please fork our github: https://github.com/PKU
 
 .. toctree::
    :maxdepth: 1
+   :caption: Brain-inspired Computing
+
+   brain_inspired_computing/index.rst
+
+
+.. toctree::
+   :maxdepth: 1
    :caption: Gap Junction Network
 
    gj_nets/index.rst

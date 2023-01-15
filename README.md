@@ -1,3 +1,4 @@
-# BrainExamples
-Examples of BrainPy (>=2.2.0)
+# Examples for [BrainPy](https://github.com/brainpy/BrainPy) computation
+
+Examples needs ``brainpy>=2.3.0``.
 
