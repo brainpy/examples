@@ -184,7 +184,7 @@ def compute_classification_accuracy(model, x_data, y_data, batch_size=128, nb_st
     am = jnp.argmax(m, 1)  # argmax over output units
     tmp = jnp.mean(y_local == am)  # compare to labels
     accs.append(tmp)
-  return jnp.mean(bm.asarray(accs))
+  return bm.mean(bm.asarray(accs))
 
 
 def get_mini_batch_results(model, x_data, y_data, batch_size=128, nb_steps=100, nb_inputs=28 * 28):
