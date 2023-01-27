@@ -138,7 +138,7 @@ def main():
   parser.add_argument('-batch', default=128, type=int, help='batch size')
   parser.add_argument('-n_channel', default=128, type=int, help='channels of ConvLIF')
   parser.add_argument('-n_epoch', default=64, type=int, metavar='N', help='number of total epochs to run')
-  parser.add_argument('-data-dir', default='./data', type=str, help='root dir of Fashion-MNIST dataset')
+  parser.add_argument('-data-dir', default='D:/data', type=str, help='root dir of Fashion-MNIST dataset')
   parser.add_argument('-out-dir', default='./logs', type=str, help='root dir for saving logs and checkpoint')
   parser.add_argument('-lr', default=0.1, type=float, help='learning rate')
   args = parser.parse_args()

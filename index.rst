@@ -1,7 +1,6 @@
 BrainPy Examples
 ================
 
-
 This repository contains examples of using `BrainPy <https://brainpy.readthedocs.io/>`_
 to implement various models about neurons, synapse, networks, etc. We welcome your implementation,
 which can be post through our `github <https://github.com/PKU-NIP-Lab/BrainPyExamples>`_ page.
@@ -50,6 +49,13 @@ If you want to add more examples, please fork our github: https://github.com/PKU
 
 .. toctree::
    :maxdepth: 1
+   :caption: Reservoir Computing
+
+   reservoir_computing/index.rst
+
+
+.. toctree::
+   :maxdepth: 1
    :caption: Gap Junction Network
 
    gj_nets/index.rst
@@ -78,13 +84,6 @@ If you want to add more examples, please fork our github: https://github.com/PKU
 
 .. toctree::
    :maxdepth: 1
-   :caption: Reservoir Computing
-
-   reservoir_computing/index.rst
-
-
-.. toctree::
-   :maxdepth: 1
    :caption: Working Memory Model
 
    working_memory/index.rst
@@ -102,7 +101,6 @@ If you want to add more examples, please fork our github: https://github.com/PKU
    :caption: Classical Dynamical Systems
 
    classical_dynamical_systems/index.rst
-
 
 
 .. toctree::

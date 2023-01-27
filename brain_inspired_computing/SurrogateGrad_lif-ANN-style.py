@@ -101,7 +101,7 @@ def loss():
   Y = bm.random.permutation(y_data, key=key)
   looper = bp.DSRunner(net, numpy_mon_after_run=False, progress_bar=False)
   predictions = looper.run(inputs=X, reset_state=True)
-  predictions = jnp.max(predictions, axis=1)
+  predictions = bm.max(predictions, axis=1)
   return bp.losses.cross_entropy_loss(predictions, Y)
 
 
