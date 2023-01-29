@@ -32,3 +32,12 @@ Training a spiking neural network with surrogate gradient learning.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Training a spiking neural network on a simple vision dataset.
+
+
+`(2021, Raminmh): Liquid time-constant Networks <https://github.com/brainpy/examples/blob/main/brain_inspired_computing/liquid_time_constant_network.py>`_
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Training a liquid_time_constant_network with BPTT.
+
+
+
