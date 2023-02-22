@@ -18,7 +18,7 @@ import tqdm
 from torchtoolbox.transform import Cutout
 
 bm.set_environment(bm.TrainingMode())
-conv_init = bp.init.KaimingNormal(mode='fan_out', scale=jnp.sqrt(2), in_axis=0)
+conv_init = bp.init.KaimingNormal(mode='fan_out', scale=jnp.sqrt(2))
 dense_init = bp.init.Normal(0, 0.01)
 
 
