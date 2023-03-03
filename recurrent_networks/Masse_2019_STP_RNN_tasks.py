@@ -4,7 +4,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-
 __all__ = [
   'Task'
 ]
@@ -208,7 +207,7 @@ class Task(object):
     plt.show()
 
   def _generate_basic_trial(self, test_mode, set_rule=None):
-    """ Generate a delayed matching task.
+    """Generate a delayed matching task.
 
     Goal is to determine whether the sample stimulus, possibly manipulated by a rule,
     is identical to a test stimulus. Sample and test stimuli are separated by a delay.
@@ -225,19 +224,21 @@ class Task(object):
       'match': np.zeros((self.batch_size,), dtype=np.int8),
       'catch': np.zeros((self.batch_size,), dtype=np.int8),
       'probe': np.zeros((self.batch_size,), dtype=np.int8),
-      'neural_input': np.random.normal(self.input_mean, self.noise_in, size=(self.num_steps, self.batch_size, self.num_input))
+      'neural_input': np.random.normal(self.input_mean,
+                                       self.noise_in,
+                                       size=(self.num_steps, self.batch_size, self.num_input))
     }
 
     # set to mask equal to zero during the dead time
     data['train_mask'][:int(self.dead_time // self.dt), :] = 0.
 
-    for t in range(self.batch_size):
+    for batch_i in range(self.batch_size):
       sample_dir = np.random.randint(self.num_motion_dirs)
       test_RF = np.random.choice([1, 2]) if self.trial_type == 'location_DMS' else 0
       rule = np.random.randint(self.num_rules) if set_rule is None else set_rule
-      if self.trial_type == 'DMC' or \
-          (self.trial_type == 'DMS+DMC' and rule == 1) or \
-          (self.trial_type == 'DMS+DMRS+DMC' and rule == 2):
+      if (self.trial_type == 'DMC' or
+          (self.trial_type == 'DMS+DMC' and rule == 1) or
+          (self.trial_type == 'DMS+DMRS+DMC' and rule == 2)):
         # for DMS+DMC trial type, rule 0 will be DMS, and rule 1 will be DMC
         current_trial_DMC = True
       else:
@@ -254,7 +255,7 @@ class Task(object):
 
       test_time_rng = range(test_onset, self.num_steps)
       fix_time_rng = range(test_onset)
-      data['train_mask'][test_onset:test_onset + mask_duration, t] = 0.
+      data['train_mask'][test_onset:test_onset + mask_duration, batch_i] = 0.
 
       # Generate the sample and test stimuli based on the rule
       if not test_mode:
@@ -286,41 +287,41 @@ class Task(object):
 
       # Calculate neural input based on sample, tests, fixation, rule, and probe
       # SAMPLE stimulus
-      data['neural_input'][self.sample_time_rng, t, :] += \
+      data['neural_input'][self.sample_time_rng, batch_i, :] += \
         np.reshape(self.motion_tuning[:, 0, sample_dir], (1, -1))
 
       # TEST stimulus
       if not catch:
-        data['neural_input'][test_time_rng, t, :] += \
+        data['neural_input'][test_time_rng, batch_i, :] += \
           np.reshape(self.motion_tuning[:, test_RF, test_dir], (1, -1))
 
       # FIXATION cue
       if self.num_fix_tuned > 0:
-        data['neural_input'][fix_time_rng, t] += np.reshape(self.fix_tuning[:, 0], (-1, 1))
+        data['neural_input'][fix_time_rng, batch_i] += np.reshape(self.fix_tuning[:, 0], (-1, 1))
 
       # RULE CUE
       if self.num_rules > 1 and self.num_rule_tuned > 0:
-        data['neural_input'][self.rule_time_rng[0], t, :] += \
+        data['neural_input'][self.rule_time_rng[0], batch_i, :] += \
           np.reshape(self.rule_tuning[:, rule], (1, -1))
 
       # Determine the desired network output response
-      data['desired_output'][fix_time_rng, t, 0] = 1.
+      data['desired_output'][fix_time_rng, batch_i, 0] = 1.
       if not catch:
         # can use a greater weight for test period if needed
-        data['train_mask'][test_time_rng, t] *= self.test_cost_multiplier
+        data['train_mask'][test_time_rng, batch_i] *= self.test_cost_multiplier
         if match == 0:
-          data['desired_output'][test_time_rng, t, 1] = 1.
+          data['desired_output'][test_time_rng, batch_i, 1] = 1.
         else:
-          data['desired_output'][test_time_rng, t, 2] = 1.
+          data['desired_output'][test_time_rng, batch_i, 2] = 1.
       else:
-        data['desired_output'][test_time_rng, t, 0] = 1.
+        data['desired_output'][test_time_rng, batch_i, 0] = 1.
 
       # Append trial info
-      data['sample'][t] = sample_dir
-      data['test'][t] = test_dir
-      data['rule'][t] = rule
-      data['catch'][t] = catch
-      data['match'][t] = match
+      data['sample'][batch_i] = sample_dir
+      data['test'][batch_i] = test_dir
+      data['rule'][batch_i] = rule
+      data['catch'][batch_i] = catch
+      data['match'][batch_i] = match
 
     return data
 
@@ -570,21 +571,19 @@ class Task(object):
     # Generate list of preferred directions
     # dividing neurons by 2 since two equal
     # groups representing two modalities
-    pref_dirs = np.arange(0, 360, 360 / (self.num_motion_tuned // self.num_receptive_fields))
+    num_per_field = self.num_motion_tuned // self.num_receptive_fields
+    pref_dirs = np.arange(0, 360, 360 / num_per_field)
 
     # Generate list of possible stimulus directions
     stim_dirs = np.arange(0, 360, 360 / self.num_motion_dirs)
 
-    for n in range(self.num_motion_tuned // self.num_receptive_fields):
+    for n in range(num_per_field):
       for i in range(self.num_motion_dirs):
+        d = np.cos((stim_dirs[i] - pref_dirs[n]) / 180 * np.pi)
+        d = self.tuning_height * np.exp(self.kappa * d) / np.exp(self.kappa)
         for r in range(self.num_receptive_fields):
-          if self.trial_type == 'distractor':
-            if n % self.num_motion_dirs == i:
-              motion_tuning[n, 0, i] = self.tuning_height
-          else:
-            d = np.cos((stim_dirs[i] - pref_dirs[n]) / 180 * np.pi)
-            n_ind = n + r * self.num_motion_tuned // self.num_receptive_fields
-            motion_tuning[n_ind, r, i] = self.tuning_height * np.exp(self.kappa * d) / np.exp(self.kappa)
+          n_ind = n + r * num_per_field
+          motion_tuning[n_ind, r, i] = d
 
     for n in range(self.num_fix_tuned):
       fix_tuning[self.num_motion_tuned + n, 0] = self.tuning_height
@@ -596,3 +595,8 @@ class Task(object):
             self.tuning_height * self.rule_cue_multiplier
 
     return motion_tuning, fix_tuning, rule_tuning
+
+
+if __name__ == '__main__':
+  task = Task('DMS', dt=100, tau=100, batch_size=32)
+  task.generate_trial()

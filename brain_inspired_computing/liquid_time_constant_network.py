@@ -429,7 +429,7 @@ class _BaseTask(object):
     self.model = bp.Sequential(rnn, readout)
 
     # optimizer
-    self.optimizer = bp.optimizers.Adam(lr, self.model.train_vars())
+    self.optimizer = bp.optim.Adam(lr, self.model.train_vars())
 
     # functions
     self.f_grad = bm.grad(self._loss,

@@ -85,7 +85,7 @@ def print_classification_accuracy(output, target):
   print("Accuracy %.3f" % acc)
 
 
-def current2firing_time(x, tau=20., thr=0.2, tmax=1.0, epsilon=1e-7):
+def current2firing_time(x, tau=20., thr=0.2, epsilon=1e-7):
   """Computes first firing time latency for a current input x
   assuming the charge time of a current based LIF neuron.
 
@@ -103,7 +103,6 @@ def current2firing_time(x, tau=20., thr=0.2, tmax=1.0, epsilon=1e-7):
   """
   x = np.clip(x, thr + epsilon, 1e9)
   T = tau * np.log(x / (x - thr))
-  T = np.where(x < thr, tmax, T)
   return T
 
 
@@ -122,7 +121,7 @@ def sparse_data_generator(X, y, batch_size, nb_steps, nb_units, shuffle=True):
   # compute discrete firing times
   tau_eff = 2. / bm.get_dt()
   unit_numbers = np.arange(nb_units)
-  firing_times = np.array(current2firing_time(X, tau=tau_eff, tmax=nb_steps), dtype=bm.int_)
+  firing_times = np.array(current2firing_time(X, tau=tau_eff), dtype=bm.int_)
 
   if shuffle:
     np.random.shuffle(sample_index)

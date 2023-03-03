@@ -6,24 +6,22 @@ import sys
 import time
 from functools import partial
 
-import brainpy_datasets as bd
-from jax import lax
-import jax.numpy as jnp
-
 import brainpy as bp
 import brainpy.math as bm
-from brainpy.tools import DotDict
+import brainpy_datasets as bd
+import jax.numpy as jnp
+from jax import lax
 
 bm.set_environment(mode=bm.training_mode, dt=1.)
 
 
-class ConvLIF(bp.DynamicalSystem):
+class ConvLIF(bp.DynamicalSystemNS):
   def __init__(self, n_time: int, n_channel: int, tau: float = 5.):
     super().__init__()
     self.n_time = n_time
 
     lif_par = dict(keep_size=True, V_rest=0., V_reset=0., V_th=1.,
-                   tau=tau, spike_fun=bm.surrogate.arctan)
+                   tau=tau, spike_fun=bm.surrogate.arctan, input_var=False)
 
     self.block1 = bp.Sequential(
       bp.layers.Conv2d(1, n_channel, kernel_size=3, padding=(1, 1), b_initializer=None),
@@ -31,13 +29,13 @@ class ConvLIF(bp.DynamicalSystem):
       bp.neurons.LIF((28, 28, n_channel), **lif_par)
     )
     self.block2 = bp.Sequential(
-      bp.layers.MaxPool([2, 2], 2, channel_axis=-1),  # 14 * 14
+      bp.layers.MaxPool2d(2, 2),  # 14 * 14
       bp.layers.Conv2d(n_channel, n_channel, kernel_size=3, padding=(1, 1), b_initializer=None),
       bp.layers.BatchNorm2d(n_channel, momentum=0.9),
       bp.neurons.LIF((14, 14, n_channel), **lif_par),
     )
     self.block3 = bp.Sequential(
-      bp.layers.MaxPool([2, 2], 2, channel_axis=-1),  # 7 * 7
+      bp.layers.MaxPool2d(2, 2),  # 7 * 7
       bp.layers.Flatten(),
       bp.layers.Dense(n_channel * 7 * 7, n_channel * 4 * 4, b_initializer=None),
       bp.neurons.LIF(4 * 4 * n_channel, **lif_par),
@@ -47,15 +45,12 @@ class ConvLIF(bp.DynamicalSystem):
       bp.neurons.LIF(10, **lif_par),
     )
 
-  def update(self, sha, x):
-    self.block1(sha, x)  # x.shape = [B, H, W, C]
-    self.block2(sha, self.block1[-1].spike.value)
-    self.block3(sha, self.block2[-1].spike.value)
-    self.block4(sha, self.block3[-1].spike.value)
-    return self.block4[-1].spike.value
+  def update(self, x):
+    # x.shape = [B, H, W, C]
+    return self.block4(self.block3(self.block2(self.block1(x))))
 
 
-class IFNode(bp.DynamicalSystem):
+class IFNode(bp.DynamicalSystemNS):
   """The Integrate-and-Fire neuron. The voltage of the IF neuron will
   not decay as that of the LIF neuron. The sub-threshold neural dynamics
   of it is as followed:
@@ -81,7 +76,7 @@ class IFNode(bp.DynamicalSystem):
   def reset_state(self, batch_size):
     self.V.value = jnp.zeros((batch_size,) + self.size, dtype=bm.float_)
 
-  def update(self, s, x):
+  def update(self, x):
     self.V.value += x
     spike = self.spike_fun(self.V - self.v_threshold)
     # s = lax.stop_gradient(spike)
@@ -94,7 +89,7 @@ class IFNode(bp.DynamicalSystem):
     return spike
 
 
-class ConvIF(bp.DynamicalSystem):
+class ConvIF(bp.DynamicalSystemNS):
   def __init__(self, n_time: int, n_channel: int):
     super().__init__()
     self.n_time = n_time
@@ -113,7 +108,7 @@ class ConvIF(bp.DynamicalSystem):
     self.block3 = bp.Sequential(
       bp.layers.MaxPool([2, 2], 2, channel_axis=-1),  # 7 * 7
       bp.layers.Flatten(),
-      bp.layers.Dense(n_channel * 7 * 7, n_channel * 4 * 4,),
+      bp.layers.Dense(n_channel * 7 * 7, n_channel * 4 * 4, ),
       IFNode((4 * 4 * n_channel,), spike_fun=bm.surrogate.arctan),
     )
     self.block4 = bp.Sequential(
@@ -121,12 +116,49 @@ class ConvIF(bp.DynamicalSystem):
       IFNode((10,), spike_fun=bm.surrogate.arctan),
     )
 
-  def update(self, sha, x):
-    x = self.block1(sha, x)  # x.shape = [B, H, W, C]
-    x = self.block2(sha, x)
-    x = self.block3(sha, x)
-    x = self.block4(sha, x)
+  def update(self, x):
+    x = self.block1(x)  # x.shape = [B, H, W, C]
+    x = self.block2(x)
+    x = self.block3(x)
+    x = self.block4(x)
     return x
+
+
+class TrainMNIST:
+  def __init__(self, net, n_time):
+    self.net = net
+    self.n_time = n_time
+
+    self.f_predict = bm.jit(partial(self.loss), child_objs=self.net)
+    self.f_grad = bm.grad(self.loss,
+                          grad_vars=net.train_vars().unique(),
+                          child_objs=self.net,
+                          has_aux=True,
+                          return_value=True)
+    self.f_opt = bp.optim.Adam(bp.optim.ExponentialDecay(0.2, 1, 0.9999),
+                               train_vars=net.train_vars().unique())
+    self.f_train = bm.jit(self.train, child_objs=(self.f_grad, self.f_opt))
+
+  def inference(self, X, fit=True):
+    def run_net(t):
+      bp.share.save(t=t, fit=fit)
+      return self.net(X)
+
+    self.net.reset_state(X.shape[0])
+    return bm.for_loop(run_net, jnp.arange(self.n_time, dtype=bm.float_), child_objs=self.net)
+
+  def loss(self, X, Y, fit=True):
+    fr = bm.max(self.inference(X, fit), axis=0)
+    ys_onehot = bm.one_hot(Y, 10, dtype=bm.float_)
+    l = bp.losses.mean_squared_error(fr, ys_onehot)
+    n = bm.sum(fr.argmax(1) == Y)
+    return l, n
+
+  def train(self, X, Y):
+    bp.share.save(fit=True)
+    grads, l, n = self.f_grad(X, Y)
+    self.f_opt.update(grads)
+    return l, n
 
 
 def main():
@@ -138,7 +170,7 @@ def main():
   parser.add_argument('-batch', default=128, type=int, help='batch size')
   parser.add_argument('-n_channel', default=128, type=int, help='channels of ConvLIF')
   parser.add_argument('-n_epoch', default=64, type=int, metavar='N', help='number of total epochs to run')
-  parser.add_argument('-data-dir', default='D:/data', type=str, help='root dir of Fashion-MNIST dataset')
+  parser.add_argument('-data-dir', default='/mnt/d/data', type=str, help='root dir of Fashion-MNIST dataset')
   parser.add_argument('-out-dir', default='./logs', type=str, help='root dir for saving logs and checkpoint')
   parser.add_argument('-lr', default=0.1, type=float, help='learning rate')
   args = parser.parse_args()
@@ -150,47 +182,15 @@ def main():
   if args.model == 'if':
     net = ConvIF(n_time=args.n_time, n_channel=args.n_channel)
     out_dir = os.path.join(args.out_dir,
-                           f'{args.model}_T{args.n_time}_b{args.batch}_'
-                           f'lr{args.lr}_c{args.n_channel}')
+                           f'{args.model}_T{args.n_time}_b{args.batch}_lr{args.lr}_c{args.n_channel}')
   elif args.model == 'lif':
     net = ConvLIF(n_time=args.n_time, n_channel=args.n_channel, tau=args.tau)
     out_dir = os.path.join(args.out_dir,
-                           f'{args.model}_T{args.n_time}_b{args.batch}_'
-                           f'lr{args.lr}_c{args.n_channel}_tau{args.tau}')
+                           f'{args.model}_T{args.n_time}_b{args.batch}_lr{args.lr}_c{args.n_channel}_tau{args.tau}')
   else:
     raise ValueError
 
-  # prediction function
-  def inference_fun(X, fit=True):
-    net.reset_state(X.shape[0])
-    return bm.for_loop(lambda sha: net(sha.update(dt=bm.dt, fit=fit), X),
-                       DotDict(t=jnp.arange(args.n_time, dtype=bm.float_),
-                               i=jnp.arange(args.n_time, dtype=bm.int_)),
-                       child_objs=net)
-
-  # loss function
-  @bm.to_object(child_objs=net)
-  def loss_fun(X, Y, fit=True):
-    fr = jnp.max(inference_fun(X, fit), axis=0)
-    ys_onehot = bm.one_hot(Y, 10, dtype=bm.float_)
-    l = bp.losses.mean_squared_error(fr, ys_onehot)
-    n = jnp.sum(fr.argmax(1) == Y)
-    return l, n
-
-  predict_loss_fun = bm.jit(partial(loss_fun, fit=True), child_objs=loss_fun)
-
-  grad_fun = bm.grad(loss_fun, grad_vars=net.train_vars().unique(), has_aux=True, return_value=True)
-
-  # optimizer
-  optimizer = bp.optim.Adam(bp.optim.ExponentialDecay(0.2, 1, 0.9999),
-                            train_vars=net.train_vars().unique())
-
-  @bm.jit
-  @bm.to_object(child_objs=(grad_fun, optimizer))
-  def train_fun(X, Y):
-    grads, l, n = grad_fun(X, Y)
-    optimizer.update(grads)
-    return l, n
+  trainer = TrainMNIST(net, args.n_time)
 
   # dataset
   train_set = bd.vision.FashionMNIST(root=args.data_dir, split='train', download=True)
@@ -213,18 +213,18 @@ def main():
     for i in range(0, x_train.shape[0], args.batch):
       xs = x_train[i: i + args.batch]
       ys = y_train[i: i + args.batch]
-      l, n = train_fun(xs, ys)
+      l, n = trainer.f_train(xs, ys)
       loss.append(l)
       train_acc += n
     train_acc /= x_train.shape[0]
     train_loss = jnp.mean(jnp.asarray(loss))
-    optimizer.lr.step_epoch()
+    trainer.f_opt.lr.step_epoch()
 
     loss, test_acc = [], 0.
     for i in range(0, x_test.shape[0], args.batch):
       xs = x_test[i: i + args.batch]
       ys = y_test[i: i + args.batch]
-      l, n = predict_loss_fun(xs, ys)
+      l, n = trainer.f_predict(xs, ys)
       loss.append(l)
       test_acc += n
     test_acc /= x_test.shape[0]
@@ -239,21 +239,21 @@ def main():
       max_test_acc = test_acc
       states = {
         'net': net.state_dict(),
-        'optimizer': optimizer.state_dict(),
+        'optimizer': trainer.f_opt.state_dict(),
         'epoch_i': epoch_i,
         'train_acc': train_acc,
         'test_acc': test_acc,
       }
-      bp.checkpoints.save(out_dir, states, epoch_i)
+      bp.checkpoints.save_pytree(os.path.join(out_dir, 'fmnist-conv-lif.bp'), states)
 
   # inference
-  state_dict = bp.checkpoints.load(out_dir)
+  state_dict = bp.checkpoints.load_pytree(os.path.join(out_dir, 'fmnist-conv-lif.bp'))
   net.load_state_dict(state_dict['net'])
   correct_num = 0
   for i in range(0, x_test.shape[0], 512):
     xs = x_test[i: i + 512]
     ys = y_test[i: i + 512]
-    correct_num += predict_loss_fun(xs, ys)[1]
+    correct_num += trainer.f_predict(xs, ys)[1]
   print('Max test accuracy: ', correct_num / x_test.shape[0])
 
 

@@ -2,8 +2,8 @@
 
 
 import argparse
-import functools
 import os
+import sys
 import time
 
 import brainpy as bp
@@ -18,37 +18,21 @@ import tqdm
 from torchtoolbox.transform import Cutout
 
 bm.set_environment(bm.TrainingMode())
-conv_init = bp.init.KaimingNormal(mode='fan_out', scale=jnp.sqrt(2), in_axis=0)
+conv_init = bp.init.KaimingNormal(mode='fan_out', scale=jnp.sqrt(2))
 dense_init = bp.init.Normal(0, 0.01)
 
 
-@jax.custom_vjp
+@jax.custom_gradient
 def replace(spike, rate):
-  return rate
+  def grad(dz):
+    return dz, dz
 
-
-def replace_fwd(spike, rate):
-  return replace(spike, rate), ()
-
-
-def replace_bwd(res, g):
-  return g, g
-
-
-replace.defvjp(replace_fwd, replace_bwd)
+  return rate, grad
 
 
 class ScaledWSConv2d(bp.layers.Conv2d):
-  def __init__(self,
-               in_channels,
-               out_channels,
-               kernel_size,
-               stride=1,
-               padding=0,
-               groups=1,
-               b_initializer=bp.init.ZeroInit(),
-               gain=True,
-               eps=1e-4):
+  def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0,
+               groups=1, b_initializer=bp.init.ZeroInit(), gain=True, eps=1e-4):
     super(ScaledWSConv2d, self).__init__(in_channels=in_channels,
                                          out_channels=out_channels,
                                          kernel_size=kernel_size,
@@ -57,16 +41,15 @@ class ScaledWSConv2d(bp.layers.Conv2d):
                                          groups=groups,
                                          w_initializer=conv_init,
                                          b_initializer=b_initializer)
-    bp.check.is_subclass(self.mode, bm.TrainingMode)
+    assert self.mode.is_parent_of(bm.TrainingMode)
     if gain:
       self.gain = bm.TrainVar(jnp.ones([1, 1, 1, self.out_channels]))
     else:
       self.gain = None
     self.eps = eps
 
-  def update(self, *args):
+  def update(self, x):
     assert self.mask is None
-    x = args[0] if len(args) == 1 else args[1]
     self._check_input_dim(x)
     w = self.w.value
     fan_in = np.prod(w.shape[:-1])
@@ -87,12 +70,7 @@ class ScaledWSConv2d(bp.layers.Conv2d):
 
 
 class ScaledWSLinear(bp.layers.Dense):
-  def __init__(self,
-               in_features,
-               out_features,
-               b_initializer=bp.init.ZeroInit(),
-               gain=True,
-               eps=1e-4):
+  def __init__(self, in_features, out_features, b_initializer=bp.init.ZeroInit(), gain=True, eps=1e-4):
     super(ScaledWSLinear, self).__init__(num_in=in_features,
                                          num_out=out_features,
                                          W_initializer=dense_init,
@@ -104,7 +82,7 @@ class ScaledWSLinear(bp.layers.Dense):
       self.gain = None
     self.eps = eps
 
-  def update(self, s, x):
+  def update(self, x):
     fan_in = self.W.shape[0]
     mean = jnp.mean(self.W.value, axis=0, keepdims=True)
     var = jnp.var(self.W.value, axis=0, keepdims=True)
@@ -122,28 +100,27 @@ class Scale(bp.layers.Layer):
     super(Scale, self).__init__()
     self.scale = scale
 
-  def update(self, s, x):
+  def update(self, x):
     return x * self.scale
 
 
 class WrappedSNNOp(bp.layers.Layer):
-  def __init__(self, op):
+  def __init__(self, op, grad_with_rate):
     super(WrappedSNNOp, self).__init__()
     self.op = op
+    self.grad_with_rate = grad_with_rate
 
-  def update(self, s, x):
-    if s['require_wrap']:
+  def update(self, x):
+    if bm.share.load('fit') and self.grad_with_rate:
       spike, rate = jnp.split(x, 2, axis=0)
-      out = jax.lax.stop_gradient(self.op(s, spike))
-      in_for_grad = replace(spike, rate)
-      out_for_grad = self.op(s, in_for_grad)
-      output = replace(out_for_grad, out)
-      return output
+      out_for_grad = self.op(replace(spike, rate))
+      out = jax.lax.stop_gradient(self.op(spike))
+      return replace(out_for_grad, out)
     else:
-      return self.op(s, x)
+      return self.op(x)
 
 
-class OnlineSpikingVGG(bp.DynamicalSystem):
+class OnlineSpikingVGG(bp.DynamicalSystemNS):
   cfg = [64, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512]
 
   def __init__(
@@ -179,6 +156,7 @@ class OnlineSpikingVGG(bp.DynamicalSystem):
     layers = []
     first_conv = True
     in_channels = c_in
+
     for v in self.cfg:
       if v == 'M':
         layers.append(bp.layers.AvgPool2d(kernel_size=2, stride=2))
@@ -187,17 +165,17 @@ class OnlineSpikingVGG(bp.DynamicalSystem):
           conv2d = ScaledWSConv2d(in_channels, v, kernel_size=3, padding=1, stride=1)
           if first_conv:
             first_conv = False
-          elif self.grad_with_rate:
-              conv2d = WrappedSNNOp(conv2d)
+          else:
+            conv2d = WrappedSNNOp(conv2d, self.grad_with_rate)
           layers += [conv2d,
                      self.neuron_model(neuron_sizes[neuron_i], **self.neuron_pars),
                      Scale(2.74)]
         else:
-          conv2d = bp.layers.Conv2d(in_channels, v, kernel_size=3, padding=1, stride=1, w_initializer=conv_init, )
+          conv2d = bp.layers.Conv2d(in_channels, v, kernel_size=3, padding=1, stride=1, w_initializer=conv_init)
           if first_conv:
             first_conv = False
-          elif self.grad_with_rate:
-            conv2d = WrappedSNNOp(conv2d)
+          else:
+            conv2d = WrappedSNNOp(conv2d, self.grad_with_rate)
           if batch_norm:
             layers += [conv2d,
                        bp.layers.BatchNorm2d(v, momentum=0.9),
@@ -209,30 +187,28 @@ class OnlineSpikingVGG(bp.DynamicalSystem):
         neuron_i += 1
         in_channels = v
     self.features = bp.Sequential(*layers)
+    print(self.features)
+    sys.exit()
 
     if light_classifier:
       self.avgpool = bp.layers.AdaptiveAvgPool2d((self.fc_hw, self.fc_hw))
-      if self.grad_with_rate:
-        self.classifier = WrappedSNNOp(bp.layers.Dense(512 * self.fc_hw * self.fc_hw,
-                                                       num_classes,
-                                                       W_initializer=dense_init))
-      else:
-        self.classifier = bp.layers.Dense(512 * self.fc_hw * self.fc_hw,
-                                          num_classes,
-                                          W_initializer=dense_init)
+      self.classifier = WrappedSNNOp(bp.layers.Dense(512 * self.fc_hw * self.fc_hw,
+                                                     num_classes,
+                                                     W_initializer=dense_init),
+                                     self.grad_with_rate)
     else:
       self.avgpool = bp.layers.AdaptiveAvgPool2d((7, 7))
       if self.grad_with_rate:
         self.classifier = bp.Sequential(
-          WrappedSNNOp(ScaledWSLinear(512 * 7 * 7, 4096)),
+          WrappedSNNOp(ScaledWSLinear(512 * 7 * 7, 4096), self.grad_with_rate),
           neuron_model((4096,), **self.neuron_pars, neuron_dropout=0.0),
           Scale(2.74),
           bp.layers.Dropout(0.5),
-          WrappedSNNOp(ScaledWSLinear(4096, 4096)),
+          WrappedSNNOp(ScaledWSLinear(4096, 4096), self.grad_with_rate),
           neuron_model((4096,), **self.neuron_pars, neuron_dropout=0.0),
           Scale(2.74),
           bp.layers.Dropout(0.5),
-          WrappedSNNOp(bp.layers.Dense(4096, num_classes, W_initializer=dense_init)),
+          WrappedSNNOp(bp.layers.Dense(4096, num_classes, W_initializer=dense_init), self.grad_with_rate),
         )
       else:
         self.classifier = bp.Sequential(
@@ -247,25 +223,23 @@ class OnlineSpikingVGG(bp.DynamicalSystem):
           bp.layers.Dense(4096, num_classes, W_initializer=dense_init),
         )
 
-  def update(self, s, x):
-    if self.grad_with_rate and s['fit']:
-      s['require_wrap'] = True
-      s['output_type'] = 'spike_rate'
-      x = self.features(s, x)
-      x = self.avgpool(s, x)
+  def update(self, x):
+    if self.grad_with_rate and bm.share.load('fit'):
+      bm.share.save('output_type', 'spike_rate')
+      x = self.features(x)
+      x = self.avgpool(x)
       x = bm.flatten(x, 1)
-      x = self.classifier(s, x)
+      x = self.classifier(x)
     else:
-      s['require_wrap'] = False
-      s['output_type'] = 'spike'
-      x = self.features(s, x)
-      x = self.avgpool(s, x)
+      bm.share.save('output_type', 'spike')
+      x = self.features(x)
+      x = self.avgpool(x)
       x = bm.flatten(x, 1)
-      x = self.classifier(s, x)
+      x = self.classifier(x)
     return x
 
 
-class OnlineIFNode(bp.DynamicalSystem):
+class OnlineIFNode(bp.DynamicalSystemNS):
   def __init__(
       self,
       size,
@@ -288,7 +262,6 @@ class OnlineIFNode(bp.DynamicalSystem):
     self.v_threshold = v_threshold
     self.track_rate = track_rate
     self.dropout = neuron_dropout
-
     if self.dropout > 0.0:
       self.rng = bm.random.default_rng()
     self.reset_state(1)
@@ -299,7 +272,7 @@ class OnlineIFNode(bp.DynamicalSystem):
     if self.track_rate:
       self.rate_tracking = bp.init.variable_(bm.zeros, self.size, batch_size)
 
-  def update(self, s, x):
+  def update(self, x):
     # neuron charge
     self.v.value = jax.lax.stop_gradient(self.v.value) + x
     # neuron fire
@@ -311,7 +284,7 @@ class OnlineIFNode(bp.DynamicalSystem):
     else:
       self.v.value = (1. - spike_d) * self.v + spike_d * self.v_reset
     # dropout
-    if self.dropout > 0.0 and s['fit']:
+    if self.dropout > 0.0 and bm.share.load('fit'):
       mask = self.rng.bernoulli(1 - self.dropout, self.v.shape) / (1 - self.dropout)
       spike = mask * spike
     self.spike.value = spike
@@ -319,14 +292,14 @@ class OnlineIFNode(bp.DynamicalSystem):
     if self.track_rate:
       self.rate_tracking += jax.lax.stop_gradient(spike)
     # output
-    if s['output_type'] == 'spike_rate':
+    if bm.save.load('output_type') == 'spike_rate':
       assert self.track_rate
       return jnp.concatenate([spike, self.rate_tracking.value])
     else:
       return spike
 
 
-class OnlineLIFNode(bp.DynamicalSystem):
+class OnlineLIFNode(bp.DynamicalSystemNS):
   def __init__(
       self,
       size,
@@ -364,7 +337,7 @@ class OnlineLIFNode(bp.DynamicalSystem):
     if self.track_rate:
       self.rate_tracking = bp.init.variable_(bm.zeros, self.size, batch_size)
 
-  def update(self, s, x):
+  def update(self, x):
     # neuron charge
     if self.decay_input:
       x = x / self.tau
@@ -381,14 +354,14 @@ class OnlineLIFNode(bp.DynamicalSystem):
     else:
       self.v = (1. - spike_d) * self.v + spike_d * self.v_reset
     # dropout
-    if self.dropout > 0.0 and s['fit']:
+    if self.dropout > 0.0 and bm.share.load('fit'):
       mask = self.rng.bernoulli(1 - self.dropout, spike.shape) / (1 - self.dropout)
       spike = mask * spike
     self.spike.value = spike
     # spike
     if self.track_rate:
       self.rate_tracking.value = jax.lax.stop_gradient(self.rate_tracking * (1 - 1. / self.tau) + spike)
-    if s['output_type'] == 'spike_rate':
+    if bm.share.load('output_type') == 'spike_rate':
       assert self.track_rate
       return jnp.concatenate((spike, self.rate_tracking.value))
     else:
@@ -412,7 +385,7 @@ class AverageMeter(object):
     self.avg = self.sum / self.count
 
 
-@functools.partial(jax.jit, static_argnums=2)
+@bm.jit(static_argnums=2)
 def accuracy(output, target, topk=(1,)):
   """Computes the precision@k for the specified values of k"""
   maxk = max(topk)
@@ -426,6 +399,11 @@ def accuracy(output, target, topk=(1,)):
   return res
 
 
+# print(accuracy(jnp.ones(10, ), jnp.ones(20), (1, 3, 5)))
+# import sys
+# sys.exit()
+
+
 def classify_cifar():
   parser = argparse.ArgumentParser(description='Classify CIFAR')
   parser.add_argument('-T', default=6, type=int, help='simulating time-steps')
@@ -433,7 +411,8 @@ def classify_cifar():
   parser.add_argument('-b', default=128, type=int, help='batch size')
   parser.add_argument('-epochs', default=300, type=int, help='number of total epochs to run')
   parser.add_argument('-j', default=4, type=int, help='number of data loading workers (default: 4)')
-  parser.add_argument('-data_dir', type=str, default=r'D:/data')
+  parser.add_argument('-data_dir', type=str, default=r'/mnt/d/data')
+  # parser.add_argument('-data_dir', type=str, default=r'D:/data')
   parser.add_argument('-dataset', default='cifar10', type=str)
   parser.add_argument('-out_dir', default='./logs', type=str, help='root dir for saving logs and checkpoint')
   parser.add_argument('-resume', type=str, help='resume from the checkpoint path')
@@ -470,10 +449,6 @@ def classify_cifar():
   else:
     dataloader = datasets.CIFAR100
     num_classes = 100
-  trainset = dataloader(root=args.data_dir, train=True, download=True, transform=transform_train)
-  train_data_loader = data.DataLoader(trainset, batch_size=args.b, shuffle=True, num_workers=args.j)
-  testset = dataloader(root=args.data_dir, train=False, download=False, transform=transform_test)
-  test_data_loader = data.DataLoader(testset, batch_size=args.b, shuffle=False, num_workers=args.j)
 
   # network
   net = OnlineSpikingVGG(neuron_model=OnlineLIFNode,
@@ -489,6 +464,13 @@ def classify_cifar():
                          c_in=3)
   print('Total Parameters: %.2fM' % (
       sum(p.size for p in net.vars().subset(bm.TrainVar).unique().values()) / 1000000.0))
+  print(net)
+
+  trainset = dataloader(root=args.data_dir, train=True, download=True, transform=transform_train)
+  train_data_loader = data.DataLoader(trainset, batch_size=args.b, shuffle=True, num_workers=args.j)
+  testset = dataloader(root=args.data_dir, train=False, download=False, transform=transform_test)
+  test_data_loader = data.DataLoader(testset, batch_size=args.b, shuffle=False, num_workers=args.j)
+
 
   # path
   out_dir = os.path.join(args.out_dir, f'{args.dataset}_T_{args.T}_{args.opt}_lr_{args.lr}_')
@@ -508,7 +490,8 @@ def classify_cifar():
 
   @bm.to_object(child_objs=net)
   def single_step(x, y, fit=True):
-    out = net({'fit': fit}, x)
+    bm.share.save('fit', fit)
+    out = net(x)
     if args.loss_lambda > 0.0:
       y = bm.one_hot(y, 10, dtype=bm.float_)
       l = bp.losses.mean_squared_error(out, y) * args.loss_lambda
@@ -518,8 +501,7 @@ def classify_cifar():
       l = bp.losses.cross_entropy_loss(out, y) / t_step
     return l, out
 
-  @bm.jit
-  @bm.to_object(child_objs=net)
+  @bm.jit(child_objs=net)
   def inference_fun(x, y):
     l, out = bm.for_loop(lambda _: single_step(x, y, False),
                          jnp.arange(t_step),
@@ -538,14 +520,14 @@ def classify_cifar():
     raise NotImplementedError(args.lr_scheduler)
 
   if args.opt == 'SGD':
-    optimizer = bp.optim.Momentum(lr, net.train_vars().unique(), momentum=args.momentum, weight_decay=args.weight_decay)
+    optimizer = bp.optim.Momentum(lr, net.train_vars().unique(), momentum=args.momentum,
+                                  weight_decay=args.weight_decay)
   elif args.opt == 'Adam':
     optimizer = bp.optim.AdamW(lr, net.train_vars().unique(), weight_decay=args.weight_decay)
   else:
     raise NotImplementedError(args.opt)
 
-  @bm.jit
-  @bm.to_object(child_objs=(optimizer, grad_fun))
+  @bm.jit(child_objs=(optimizer, grad_fun))
   def train_fun(x, y):
     if args.online_update:
       final_loss, final_out = 0., 0.
@@ -568,7 +550,7 @@ def classify_cifar():
   start_epoch = 0
   max_test_acc = 0
   if args.resume:
-    checkpoint = bp.checkpoints.load(args.resume)
+    checkpoint = bp.checkpoints.load_pytree(args.resume)
     net.load_state_dict(checkpoint['net'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     start_epoch = checkpoint['epoch'] + 1
@@ -593,7 +575,7 @@ def classify_cifar():
       label = jnp.asarray(label)
       net.reset_state(frame.shape[0])
       batch_loss, n, total_fr = train_fun(frame, label)
-      prec1, prec5 = accuracy(total_fr, label, topk=(1, 5))
+      prec1, prec5 = accuracy(total_fr, label, (1, 5))
       train_loss += batch_loss * label.size
       train_acc += n
       losses.update(batch_loss, frame.shape[0])
@@ -633,7 +615,7 @@ def classify_cifar():
       total_loss, n, out = inference_fun(frame, label)
       test_loss += total_loss * label.size
       test_acc += n
-      prec1, prec5 = accuracy(out, label, topk=(1, 5))
+      prec1, prec5 = accuracy(out, label, (1, 5))
       losses.update(total_loss, frame.shape[0])
       top1.update(prec1.item(), frame.shape[0])
       top5.update(prec5.item(), frame.shape[0])
@@ -660,7 +642,7 @@ def classify_cifar():
         'epoch': epoch,
         'max_test_acc': max_test_acc
       }
-      bp.checkpoints.save(out_dir, checkpoint, max_test_acc)
+      bp.checkpoints.save_pytree(out_dir + '/checkpoint.bp', checkpoint, overwrite=True)
 
     total_time = time.time() - start_time
     print(f'epoch={epoch}, train_loss={train_loss}, train_acc={train_acc}, '
