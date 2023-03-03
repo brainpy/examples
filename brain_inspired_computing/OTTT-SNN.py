@@ -111,7 +111,7 @@ class WrappedSNNOp(bp.layers.Layer):
     self.grad_with_rate = grad_with_rate
 
   def update(self, x):
-    if bm.share.load('fit') and self.grad_with_rate:
+    if bp.share.load('fit') and self.grad_with_rate:
       spike, rate = jnp.split(x, 2, axis=0)
       out_for_grad = self.op(replace(spike, rate))
       out = jax.lax.stop_gradient(self.op(spike))
@@ -187,8 +187,6 @@ class OnlineSpikingVGG(bp.DynamicalSystemNS):
         neuron_i += 1
         in_channels = v
     self.features = bp.Sequential(*layers)
-    print(self.features)
-    sys.exit()
 
     if light_classifier:
       self.avgpool = bp.layers.AdaptiveAvgPool2d((self.fc_hw, self.fc_hw))
@@ -224,14 +222,14 @@ class OnlineSpikingVGG(bp.DynamicalSystemNS):
         )
 
   def update(self, x):
-    if self.grad_with_rate and bm.share.load('fit'):
-      bm.share.save('output_type', 'spike_rate')
+    if self.grad_with_rate and bp.share.load('fit'):
+      bp.share.save('output_type', 'spike_rate')
       x = self.features(x)
       x = self.avgpool(x)
       x = bm.flatten(x, 1)
       x = self.classifier(x)
     else:
-      bm.share.save('output_type', 'spike')
+      bp.share.save('output_type', 'spike')
       x = self.features(x)
       x = self.avgpool(x)
       x = bm.flatten(x, 1)
@@ -284,7 +282,7 @@ class OnlineIFNode(bp.DynamicalSystemNS):
     else:
       self.v.value = (1. - spike_d) * self.v + spike_d * self.v_reset
     # dropout
-    if self.dropout > 0.0 and bm.share.load('fit'):
+    if self.dropout > 0.0 and bp.share.load('fit'):
       mask = self.rng.bernoulli(1 - self.dropout, self.v.shape) / (1 - self.dropout)
       spike = mask * spike
     self.spike.value = spike
@@ -354,14 +352,14 @@ class OnlineLIFNode(bp.DynamicalSystemNS):
     else:
       self.v = (1. - spike_d) * self.v + spike_d * self.v_reset
     # dropout
-    if self.dropout > 0.0 and bm.share.load('fit'):
+    if self.dropout > 0.0 and bp.share.load('fit'):
       mask = self.rng.bernoulli(1 - self.dropout, spike.shape) / (1 - self.dropout)
       spike = mask * spike
     self.spike.value = spike
     # spike
     if self.track_rate:
       self.rate_tracking.value = jax.lax.stop_gradient(self.rate_tracking * (1 - 1. / self.tau) + spike)
-    if bm.share.load('output_type') == 'spike_rate':
+    if bp.share.load('output_type') == 'spike_rate':
       assert self.track_rate
       return jnp.concatenate((spike, self.rate_tracking.value))
     else:
@@ -490,7 +488,7 @@ def classify_cifar():
 
   @bm.to_object(child_objs=net)
   def single_step(x, y, fit=True):
-    bm.share.save('fit', fit)
+    bp.share.save('fit', fit)
     out = net(x)
     if args.loss_lambda > 0.0:
       y = bm.one_hot(y, 10, dtype=bm.float_)
