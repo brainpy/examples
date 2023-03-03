@@ -16,12 +16,10 @@ parser = argparse.ArgumentParser(description='LIF MNIST Training')
 parser.add_argument('-T', default=100, type=int, help='simulating time-steps')
 parser.add_argument('-platform', default='cpu', help='device')
 parser.add_argument('-batch', default=64, type=int, help='batch size')
-parser.add_argument('-epochs', default=15, type=int, metavar='N',
-                    help='number of total epochs to run')
+parser.add_argument('-epochs', default=15, type=int, metavar='N', help='number of total epochs to run')
 parser.add_argument('-out-dir', type=str, default='./logs', help='root dir for saving logs and checkpoint')
 parser.add_argument('-lr', default=1e-3, type=float, help='learning rate')
 parser.add_argument('-tau', default=2.0, type=float, help='parameter tau of LIF neuron')
-
 args = parser.parse_args()
 print(args)
 
@@ -87,8 +85,7 @@ optimizer = bp.optim.Adam(lr=args.lr, train_vars=net.train_vars().unique())
 
 
 # train
-@bm.jit
-@bm.to_object(child_objs=(grad_fun, optimizer))
+@bm.jit(child_objs=(grad_fun, optimizer))
 def train(xs, ys):
   grads, l, n = grad_fun(xs, ys)
   optimizer.update(grads)
@@ -138,10 +135,10 @@ for epoch_i in range(args.epochs):
       'train_acc': train_acc,
       'test_acc': test_acc,
     }
-    bp.checkpoints.save(out_dir, states, epoch_i)
+    bp.checkpoints.save_pytree(os.path.join(out_dir, 'mnist-lif.bp'), states)
 
 # inference
-state_dict = bp.checkpoints.load(out_dir)
+state_dict = bp.checkpoints.load_pytree(os.path.join(out_dir, 'mnist-lif.bp'))
 net.load_state_dict(state_dict['net'])
 
 runner = bp.DSRunner(net, data_first_axis='T')
