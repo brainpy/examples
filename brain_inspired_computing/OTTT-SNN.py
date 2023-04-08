@@ -119,6 +119,9 @@ class WrappedSNNOp(bp.layers.Layer):
     else:
       return self.op(x)
 
+  def __repr__(self):
+    return f'{self.__class__.__name__}(op={self.op}, grad_with_rate={self.grad_with_rate})'
+
 
 class OnlineSpikingVGG(bp.DynamicalSystemNS):
   cfg = [64, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512]

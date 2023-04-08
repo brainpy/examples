@@ -20,7 +20,7 @@ import brainpy.math as bm
 bm.set_environment(bm.training_mode)
 
 
-class SNN(bp.Network):
+class SNN(bp.DynamicalSystemNS):
   """
   This class implements a spiking neural network model with three layers:
 
@@ -38,26 +38,18 @@ class SNN(bp.Network):
     self.num_out = num_out
 
     # neuron groups
-    self.i = bp.neurons.InputGroup(num_in)
-    self.r = bp.neurons.LIF(num_rec, tau=10, V_reset=0, V_rest=0, V_th=1.)
-    self.o = bp.neurons.LeakyIntegrator(num_out, tau=5)
+    self.r = bp.neurons.LIF(num_rec, tau=10, V_reset=0, V_rest=0, V_th=1., input_var=False)
+    self.o = bp.neurons.Leaky(num_out, tau=5)
 
     # synapse: i->r
-    self.i2r = bp.synapses.Exponential(self.i, self.r, bp.conn.All2All(),
-                                       output=bp.synouts.CUBA(target_var=None), tau=10.,
-                                       g_max=bp.init.KaimingNormal(scale=2.))
+    self.i2r = bp.experimental.Exponential(bp.conn.All2All(pre=num_in, post=num_rec),
+                                           tau=10., g_max=bp.init.KaimingNormal(scale=2.))
     # synapse: r->o
-    self.r2o = bp.synapses.Exponential(self.r, self.o, bp.conn.All2All(),
-                                       output=bp.synouts.CUBA(target_var=None), tau=10.,
-                                       g_max=bp.init.KaimingNormal(scale=2.))
+    self.r2o = bp.experimental.Exponential(bp.conn.All2All(pre=num_rec, post=num_out),
+                                           tau=10., g_max=bp.init.KaimingNormal(scale=2.))
 
-    self.model = bp.Sequential(
-      self.i, self.i2r, self.r, self.r2o, self.o
-    )
-
-  def update(self, shared, spike):
-    self.model(shared, spike)
-    return self.o.V.value
+  def update(self, spike):
+    return spike >> self.i2r >> self.r >> self.r2o >> self.o
 
 
 def plot_voltage_traces(mem, spk=None, dim=(3, 5), spike_height=5):
