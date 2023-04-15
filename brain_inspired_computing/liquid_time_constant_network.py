@@ -1,7 +1,6 @@
 
 
 """
-
 Rewrite of liquid time-constant network from https://github.com/rtqichen/time-series-datasets
 """
 
@@ -432,13 +431,10 @@ class _BaseTask(object):
     self.optimizer = bp.optim.Adam(lr, self.model.train_vars())
 
     # functions
-    self.f_grad = bm.grad(self._loss,
-                          child_objs=self.model,
+    self.f_grad = bm.grad(self.f_loss,
                           grad_vars=self.model.train_vars(),
                           return_value=True,
                           has_aux=True)
-    self.f_train = bm.jit(self._train, child_objs=(self.f_grad, self.optimizer))
-    self.f_loss = bm.jit(self._loss, child_objs=self.model)
 
     # data
     self.data = data
@@ -454,10 +450,11 @@ class _BaseTask(object):
     if not os.path.exists(result_dir):
       os.makedirs(result_dir)
 
-  def _loss(self, x, y):
+  def f_loss(self, x, y):
     raise NotImplementedError
 
-  def _train(self, xs, ys):
+  @bm.cls_jit
+  def f_train(self, xs, ys):
     grads, loss, aux = self.f_grad(xs, ys)
     self.optimizer.update(grads)
     return loss, aux
@@ -523,7 +520,8 @@ class _RegressionBasedTask(_BaseTask):
       with open(self.result_file, "w") as f:
         f.write("best epoch, train loss, train mae, valid loss, valid mae, test loss, test mae\n")
 
-  def _loss(self, x, y):
+  @bm.cls_jit(inline=True)
+  def f_loss(self, x, y):
     readout = bm.for_loop(self.model, ({}, x))
     l = bm.reduce_mean(bm.square(y - readout))
     mae = bm.reduce_mean(bm.abs(y - readout))
@@ -559,7 +557,8 @@ class TrafficTask(_RegressionBasedTask):
     super().__init__(model_type, model_size, data=TrafficData(),
                      features_in=7, features_out=1, result_dir="results/traffic")
 
-  def _loss(self, x, y):
+  @bm.cls_jit(inline=True)
+  def f_loss(self, x, y):
     y = bm.expand_dims(y, axis=-1)
     readout = bm.for_loop(self.model, ({}, x))
     l = bm.reduce_mean(bm.square(y - readout))
@@ -575,7 +574,8 @@ class _AccBasedTask(_BaseTask):
       with open(self.result_file, "w") as f:
         f.write("best epoch, train loss, train accuracy, valid loss, valid accuracy, test loss, test accuracy\n")
 
-  def _loss(self, x, y):
+  @bm.cls_jit(inline=True)
+  def f_loss(self, x, y):
     readout = bm.for_loop(self.model, ({}, x))
     l = bp.losses.cross_entropy_loss(readout, y)
     predicts = bm.argmax(readout, axis=2)
@@ -625,7 +625,8 @@ class SMnistTask(_AccBasedTask):
     super().__init__(model_type, model_size, data=SMnistData(),
                      features_in=28, features_out=10, result_dir="results/smnist")
 
-  def _loss(self, x, y):
+  @bm.cls_jit(inline=True)
+  def f_loss(self, x, y):
     readout = bm.for_loop(self.model, ({}, x))[-1]
     l = bp.losses.cross_entropy_loss(readout, y)
     predicts = bm.argmax(readout, axis=1)
@@ -638,7 +639,8 @@ class OzoneTask(_BaseTask):
     super().__init__(model_type, model_size, data=OzoneData(), features_in=72,
                      features_out=2, lr=lr, ltc_lr=ltc_lr, result_dir='data/ozone')
 
-  def _loss(self, x, y):
+  @bm.cls_jit(inline=True)
+  def f_loss(self, x, y):
     readout = bm.for_loop(self.model, ({}, x))
     weight = bm.cast(y, dtype=bm.float32) * 1.5 + 0.1
     l = bp.losses.cross_entropy_loss(readout, y, weight=weight)
@@ -690,29 +692,29 @@ if __name__ == '__main__':
   parser.add_argument('--epochs', default=200, type=int)
   args = parser.parse_args()
 
-  # model = CheetahModel(model_type=args.model, model_size=args.size)
-  # model.fit(epochs=args.epochs, log_period=args.log)
+  model = CheetahTask(model_type=args.model, model_size=args.size)
+  model.fit(epochs=args.epochs, log_period=args.log)
 
-  # model = GestureModel(model_type=args.model, model_size=args.size)
-  # model.fit(epochs=args.epochs, log_period=args.log)
+  model = GestureTask(model_type=args.model, model_size=args.size)
+  model.fit(epochs=args.epochs, log_period=args.log)
 
-  # model = HarTask(model_type=args.model, model_size=args.size)
-  # model.fit(epochs=args.epochs, log_period=args.log)
+  model = HarTask(model_type=args.model, model_size=args.size)
+  model.fit(epochs=args.epochs, log_period=args.log)
 
-  # model = OccupancyTask(model_type=args.model, model_size=args.size)
-  # model.fit(epochs=args.epochs, log_period=args.log)
+  model = OccupancyTask(model_type=args.model, model_size=args.size)
+  model.fit(epochs=args.epochs, log_period=args.log)
 
-  # model = PersonTask(model_type=args.model, model_size=args.size)
-  # model.fit(epochs=args.epochs, log_period=args.log, batch_size=64)
+  model = PersonTask(model_type=args.model, model_size=args.size)
+  model.fit(epochs=args.epochs, log_period=args.log, batch_size=64)
 
-  # model = PowerTask(model_type=args.model, model_size=args.size)
-  # model.fit(epochs=args.epochs, log_period=args.log)
+  model = PowerTask(model_type=args.model, model_size=args.size)
+  model.fit(epochs=args.epochs, log_period=args.log)
 
-  # model = SMnistTask(model_type=args.model, model_size=args.size)
-  # model.fit(epochs=args.epochs, log_period=args.log)
+  model = SMnistTask(model_type=args.model, model_size=args.size)
+  model.fit(epochs=args.epochs, log_period=args.log)
 
-  # model = TrafficTask(model_type=args.model, model_size=args.size)
-  # model.fit(epochs=args.epochs, log_period=args.log)
+  model = TrafficTask(model_type=args.model, model_size=args.size)
+  model.fit(epochs=args.epochs, log_period=args.log)
 
   model = OzoneTask(model_type=args.model, model_size=args.size)
   model.fit(epochs=args.epochs, log_period=args.log)

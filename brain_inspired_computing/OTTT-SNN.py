@@ -489,7 +489,6 @@ def classify_cifar():
 
   t_step = args.T
 
-  @bm.to_object(child_objs=net)
   def single_step(x, y, fit=True):
     bp.share.save('fit', fit)
     out = net(x)
@@ -502,11 +501,9 @@ def classify_cifar():
       l = bp.losses.cross_entropy_loss(out, y) / t_step
     return l, out
 
-  @bm.jit(child_objs=net)
+  @bm.jit
   def inference_fun(x, y):
-    l, out = bm.for_loop(lambda _: single_step(x, y, False),
-                         jnp.arange(t_step),
-                         child_objs=net)
+    l, out = bm.for_loop(lambda _: single_step(x, y, False), jnp.arange(t_step))
     out = out.sum(0)
     n = jnp.sum(jnp.argmax(out, axis=1) == y)
     return l.sum(), n, out
@@ -528,7 +525,7 @@ def classify_cifar():
   else:
     raise NotImplementedError(args.opt)
 
-  @bm.jit(child_objs=(optimizer, grad_fun))
+  @bm.jit
   def train_fun(x, y):
     if args.online_update:
       final_loss, final_out = 0., 0.

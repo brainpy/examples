@@ -63,7 +63,6 @@ y_test = bm.asarray(test_data.targets, dtype=bm.int_)
 encoder = bp.encoding.PoissonEncoder(min_val=0., max_val=1.)
 
 
-@bm.to_object(child_objs=(net, encoder))
 def loss_fun(xs, ys):
   net.reset_state(batch_size=xs.shape[0])
   xs = encoder(xs, num_step=args.T)
@@ -85,7 +84,7 @@ optimizer = bp.optim.Adam(lr=args.lr, train_vars=net.train_vars().unique())
 
 
 # train
-@bm.jit(child_objs=(grad_fun, optimizer))
+@bm.jit
 def train(xs, ys):
   grads, l, n = grad_fun(xs, ys)
   optimizer.update(grads)

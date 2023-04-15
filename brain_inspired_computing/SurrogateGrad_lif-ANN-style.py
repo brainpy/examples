@@ -94,7 +94,6 @@ plot_voltage_traces(out)
 print_classification_accuracy(out, y_data)
 
 
-@bm.to_object(child_objs=net, dyn_vars=rng)  # add nodes and vars used in this function
 def loss():
   key = rng.split_key()
   X = bm.random.permutation(x_data, key=key)
@@ -105,11 +104,10 @@ def loss():
   return bp.losses.cross_entropy_loss(predictions, Y)
 
 
-grad = bm.grad(loss, grad_vars=loss.train_vars().unique(), return_value=True)
+grad = bm.grad(loss, grad_vars=net.train_vars().unique(), return_value=True)
 optimizer = bp.optim.Adam(lr=2e-3, train_vars=net.train_vars().unique())
 
 
-@bm.to_object(child_objs=(grad, optimizer))  # add nodes and vars used in this function
 def train(_):
   grads, l = grad()
   optimizer.update(grads)

@@ -129,25 +129,24 @@ class TrainMNIST:
     self.net = net
     self.n_time = n_time
 
-    self.f_predict = bm.jit(partial(self.loss), child_objs=self.net)
+    self.f_predict = bm.jit(partial(self.loss, fit=False))
     self.f_grad = bm.grad(self.loss,
                           grad_vars=net.train_vars().unique(),
-                          child_objs=self.net,
                           has_aux=True,
                           return_value=True)
     self.f_opt = bp.optim.Adam(bp.optim.ExponentialDecay(0.2, 1, 0.9999),
                                train_vars=net.train_vars().unique())
-    self.f_train = bm.jit(self.train, child_objs=(self.f_grad, self.f_opt))
+    self.f_train = bm.jit(self.train)
 
-  def inference(self, X, fit=True):
+  def inference(self, X, fit=False):
     def run_net(t):
       bp.share.save(t=t, fit=fit)
       return self.net(X)
 
     self.net.reset_state(X.shape[0])
-    return bm.for_loop(run_net, jnp.arange(self.n_time, dtype=bm.float_), child_objs=self.net)
+    return bm.for_loop(run_net, jnp.arange(self.n_time, dtype=bm.float_))
 
-  def loss(self, X, Y, fit=True):
+  def loss(self, X, Y, fit=False):
     fr = bm.max(self.inference(X, fit), axis=0)
     ys_onehot = bm.one_hot(Y, 10, dtype=bm.float_)
     l = bp.losses.mean_squared_error(fr, ys_onehot)
