@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 import brainpy as bp
 import brainpy.math as bm
-
+print(bp.__version__)
 
 # bm.set_platform('cpu')
 
