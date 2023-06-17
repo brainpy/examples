@@ -7,7 +7,7 @@ import numpy as np
 bp.math.set_platform('cpu')
 
 
-class LIF(bp.dyn.NeuGroup):
+class LIF(bp.NeuGroup):
   def __init__(self, size, tau_neu=10., tau_syn=0.5, tau_ref=2.,
                V_reset=-65., V_th=-50., Cm=0.25, ):
     super(LIF, self).__init__(size=size)

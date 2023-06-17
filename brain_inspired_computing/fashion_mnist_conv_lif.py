@@ -4,11 +4,11 @@ import argparse
 import os
 import sys
 import time
-from functools import partial
 
 import brainpy as bp
 import brainpy.math as bm
 import brainpy_datasets as bd
+import jax
 import jax.numpy as jnp
 from jax import lax
 
@@ -47,7 +47,10 @@ class ConvLIF(bp.DynamicalSystemNS):
 
   def update(self, x):
     # x.shape = [B, H, W, C]
-    return self.block4(self.block3(self.block2(self.block1(x))))
+    x = self.block1(x)
+    x = self.block2(x)
+    x = self.block3(x)
+    return self.block4(x)
 
 
 class IFNode(bp.DynamicalSystemNS):
@@ -79,13 +82,11 @@ class IFNode(bp.DynamicalSystemNS):
   def update(self, x):
     self.V.value += x
     spike = self.spike_fun(self.V - self.v_threshold)
-    # s = lax.stop_gradient(spike)
-    s = spike
     if self.reset_mode == 'hard':
       one = lax.convert_element_type(1., bm.float_)
-      self.V.value = self.v_reset * s + (one - s) * self.V
+      self.V.value = self.v_reset * spike + (one - spike) * self.V
     else:
-      self.V -= s * self.v_threshold
+      self.V -= spike * self.v_threshold
     return spike
 
 
@@ -128,15 +129,8 @@ class TrainMNIST:
   def __init__(self, net, n_time):
     self.net = net
     self.n_time = n_time
-
-    self.f_predict = bm.jit(partial(self.loss, fit=False))
-    self.f_grad = bm.grad(self.loss,
-                          grad_vars=net.train_vars().unique(),
-                          has_aux=True,
-                          return_value=True)
     self.f_opt = bp.optim.Adam(bp.optim.ExponentialDecay(0.2, 1, 0.9999),
                                train_vars=net.train_vars().unique())
-    self.f_train = bm.jit(self.train)
 
   def inference(self, X, fit=False):
     def run_net(t):
@@ -144,7 +138,7 @@ class TrainMNIST:
       return self.net(X)
 
     self.net.reset_state(X.shape[0])
-    return bm.for_loop(run_net, jnp.arange(self.n_time, dtype=bm.float_))
+    return bm.for_loop(run_net, jnp.arange(self.n_time, dtype=bm.float_), jit=False)
 
   def loss(self, X, Y, fit=False):
     fr = bm.max(self.inference(X, fit), axis=0)
@@ -153,9 +147,18 @@ class TrainMNIST:
     n = bm.sum(fr.argmax(1) == Y)
     return l, n
 
-  def train(self, X, Y):
+  @bm.cls_jit
+  def f_predict(self, X, Y):
+    return self.loss(X, Y, fit=False)
+
+  @bm.cls_jit
+  def f_train(self, X, Y):
     bp.share.save(fit=True)
-    grads, l, n = self.f_grad(X, Y)
+    f_grad = bm.grad(self.loss,
+                     grad_vars=self.f_opt.vars_to_train,
+                     has_aux=True,
+                     return_value=True)
+    grads, l, n = f_grad(X, Y)
     self.f_opt.update(grads)
     return l, n
 
@@ -169,7 +172,7 @@ def main():
   parser.add_argument('-batch', default=128, type=int, help='batch size')
   parser.add_argument('-n_channel', default=128, type=int, help='channels of ConvLIF')
   parser.add_argument('-n_epoch', default=64, type=int, metavar='N', help='number of total epochs to run')
-  parser.add_argument('-data-dir', default='/mnt/d/data', type=str, help='root dir of Fashion-MNIST dataset')
+  parser.add_argument('-data-dir', default='d:/data', type=str, help='root dir of Fashion-MNIST dataset')
   parser.add_argument('-out-dir', default='./logs', type=str, help='root dir for saving logs and checkpoint')
   parser.add_argument('-lr', default=0.1, type=float, help='learning rate')
   args = parser.parse_args()
@@ -181,11 +184,13 @@ def main():
   if args.model == 'if':
     net = ConvIF(n_time=args.n_time, n_channel=args.n_channel)
     out_dir = os.path.join(args.out_dir,
-                           f'{args.model}_T{args.n_time}_b{args.batch}_lr{args.lr}_c{args.n_channel}')
+                           f'{args.model}_T{args.n_time}_b{args.batch}'
+                           f'_lr{args.lr}_c{args.n_channel}')
   elif args.model == 'lif':
     net = ConvLIF(n_time=args.n_time, n_channel=args.n_channel, tau=args.tau)
     out_dir = os.path.join(args.out_dir,
-                           f'{args.model}_T{args.n_time}_b{args.batch}_lr{args.lr}_c{args.n_channel}_tau{args.tau}')
+                           f'{args.model}_T{args.n_time}_b{args.batch}'
+                           f'_lr{args.lr}_c{args.n_channel}_tau{args.tau}')
   else:
     raise ValueError
 
@@ -212,7 +217,8 @@ def main():
     for i in range(0, x_train.shape[0], args.batch):
       xs = x_train[i: i + args.batch]
       ys = y_train[i: i + args.batch]
-      l, n = trainer.f_train(xs, ys)
+      with jax.disable_jit():
+        l, n = trainer.f_train(xs, ys)
       loss.append(l)
       train_acc += n
     train_acc /= x_train.shape[0]
