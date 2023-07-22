@@ -19,7 +19,7 @@ import brainpy as bp
 import brainpy.math as bm
 
 
-class SNN(bp.Network):
+class SNN(bp.DynSysGroup):
   def __init__(self, num_in, num_rec, num_out):
     super(SNN, self).__init__()
 
@@ -28,28 +28,23 @@ class SNN(bp.Network):
     self.num_rec = num_rec
     self.num_out = num_out
 
-    # neuron groups
-    self.i = bp.neurons.InputGroup(num_in, mode=bm.training_mode)
-    self.r = bp.neurons.LIF(num_rec, tau=10, V_reset=0, V_rest=0, V_th=1., mode=bm.training_mode)
-    self.o = bp.neurons.LeakyIntegrator(num_out, tau=5, mode=bm.training_mode)
-
     # synapse: i->r
-    self.i2r = bp.synapses.Exponential(self.i, self.r, bp.conn.All2All(),
-                                       output=bp.synouts.CUBA(), tau=10.,
-                                       g_max=bp.init.KaimingNormal(scale=20.),
-                                       mode=bm.training_mode)
+    self.i2r = bp.Sequential(
+      bp.dnn.Linear(num_in, num_rec, W_initializer=bp.init.KaimingNormal(scale=20.)),
+      bp.dyn.Expon(num_rec, tau=10.)
+    )
+    # recurrent: r
+    self.r = bp.dyn.Lif(num_rec, tau=10, V_reset=0, V_rest=0, V_th=1.)
     # synapse: r->o
-    self.r2o = bp.synapses.Exponential(self.r, self.o, bp.conn.All2All(),
-                                       output=bp.synouts.CUBA(), tau=10.,
-                                       g_max=bp.init.KaimingNormal(scale=20.),
-                                       mode=bm.training_mode)
+    self.r2o = bp.Sequential(
+      bp.dnn.Linear(num_rec, num_out, W_initializer=bp.init.KaimingNormal(scale=20.)),
+      bp.dyn.Expon(num_out, tau=10.)
+    )
+    # output: o
+    self.o = bp.dyn.Leaky(num_out, tau=5)
 
-  def update(self, tdi, spike):
-    self.i2r(tdi, spike)
-    self.r2o(tdi)
-    self.r(tdi)
-    self.o(tdi)
-    return self.o.V.value
+  def update(self, spike):
+    return spike >> self.i2r >> self.r >> self.r2o >> self.o
 
 
 def plot_voltage_traces(mem, spk=None, dim=(3, 5), spike_height=5):

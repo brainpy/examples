@@ -22,7 +22,7 @@ Implementation of the paper:
 
 
 
-`(2019, Zenke, F.): SNN Surrogate Gradient Learning <https://github.com/brainpy/examples/blob/main/brain_inspired_computing/SurrogateGrad_lif-ANN-style.py>`_
+`(2019, Zenke, F.): SNN Surrogate Gradient Learning <https://github.com/brainpy/examples/blob/main/brain_inspired_computing/SurrogateGrad_lif-ANN.py>`_
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Training a spiking neural network with surrogate gradient learning.

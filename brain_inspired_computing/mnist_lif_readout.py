@@ -11,6 +11,7 @@ import jax.numpy as jnp
 
 import brainpy as bp
 import brainpy.math as bm
+import numpy as np
 
 parser = argparse.ArgumentParser(description='LIF MNIST Training')
 parser.add_argument('-T', default=100, type=int, help='simulating time-steps')
@@ -38,15 +39,11 @@ bm.set_environment(mode=bm.training_mode, dt=1.)
 class SNN(bp.DynamicalSystem):
   def __init__(self, tau):
     super().__init__()
+    self.l1 = bp.dnn.Dense(28 * 28, 10, b_initializer=None)
+    self.l2 = bp.dyn.Lif(10, V_rest=0., V_reset=0., V_th=1., tau=tau, spk_fun=bm.surrogate.arctan)
 
-    self.layer = bp.Sequential(
-      bp.layers.Dense(28 * 28, 10, b_initializer=None),
-      bp.neurons.LIF(10, V_rest=0., V_reset=0., V_th=1., tau=tau, spike_fun=bm.surrogate.arctan),
-    )
-
-  def update(self, p, x):
-    self.layer(p, x)
-    return self.layer[-1].spike.value
+  def update(self, x):
+    return x >> self.l1 >> self.l2
 
 
 net = SNN(args.tau)
@@ -67,8 +64,8 @@ def loss_fun(xs, ys):
   net.reset_state(batch_size=xs.shape[0])
   xs = encoder(xs, num_step=args.T)
   # shared arguments for looping over time
-  shared = bm.shared_args_over_time(num_step=args.T)
-  outs = bm.for_loop(net, (shared, xs))
+  indices = np.arange(args.T)
+  outs = bm.for_loop(net.step_run, (indices, xs))
   out_fr = jnp.mean(outs, axis=0)
   ys_onehot = bm.one_hot(ys, 10, dtype=bm.float_)
   l = bp.losses.mean_squared_error(out_fr, ys_onehot)

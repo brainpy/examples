@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
 
-import matplotlib.pyplot as plt
-
 import brainpy as bp
 import brainpy.math as bm
+import matplotlib.pyplot as plt
+
 print(bp.__version__)
 
 # bm.set_platform('cpu')
@@ -18,7 +18,6 @@ class PoissonStim(bp.NeuGroup):
     self.freq_mean = freq_mean
     self.freq_var = freq_var
     self.t_interval = t_interval
-    self.dt = bm.get_dt() / 1000.
 
     # variables
     self.freq = bp.init.variable_(bm.zeros, 1, self.mode)
@@ -31,8 +30,9 @@ class PoissonStim(bp.NeuGroup):
     self.freq_t_last_change.value = bp.init.variable_(lambda s: bm.ones(s) * -1e7, 1, batch_size)
     self.spike.value = bp.init.variable_(lambda s: bm.zeros(s, dtype=bool), self.varshape, batch_size)
 
-  def update(self, tdi):
-    t, dt = tdi['t'], tdi['dt']
+  def update(self):
+    t = bp.share['t']
+    dt = bp.share['dt']
     in_interval = bm.logical_and(pre_stimulus_period < t, t < pre_stimulus_period + stimulus_period)
     in_interval = bm.ones_like(self.freq, dtype=bool) * in_interval
     prev_freq = bm.where(in_interval, self.freq, 0.)
@@ -40,7 +40,7 @@ class PoissonStim(bp.NeuGroup):
     self.freq.value = bm.where(in_interval, self.rng.normal(self.freq_mean, self.freq_var, self.freq.shape), prev_freq)
     self.freq_t_last_change.value = bm.where(in_interval, t, self.freq_t_last_change)
     shape = (self.spike.shape[:1] + self.varshape) if isinstance(self.mode, bm.BatchingMode) else self.varshape
-    self.spike.value = self.rng.random(shape) < self.freq * self.dt
+    self.spike.value = self.rng.random(shape) < self.freq * dt / 1000.
 
 
 class DecisionMaking(bp.Network):
@@ -259,9 +259,8 @@ def batching_run():
   num_batch = 12
   coherence = bm.expand_dims(bm.linspace(-100, 100., num_batch), 1)
 
-  with bm.batching_environment():
+  with bm.environment(mode=bm.BatchingMode(batch_size=num_batch)):
     net = DecisionMaking(scale=1., coherence=coherence, mu0=20.)
-    net.reset_state(batch_size=num_batch)
     runner = bp.DSRunner(
       net, monitors=['A.spike', 'B.spike', 'IA.freq', 'IB.freq'], data_first_axis='B'
     )

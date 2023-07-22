@@ -522,7 +522,7 @@ class _RegressionBasedTask(_BaseTask):
 
   @bm.cls_jit(inline=True)
   def f_loss(self, x, y):
-    readout = bm.for_loop(self.model, ({}, x))
+    readout = bm.for_loop(self.model, x)
     l = bm.reduce_mean(bm.square(y - readout))
     mae = bm.reduce_mean(bm.abs(y - readout))
     return l, mae
@@ -560,7 +560,7 @@ class TrafficTask(_RegressionBasedTask):
   @bm.cls_jit(inline=True)
   def f_loss(self, x, y):
     y = bm.expand_dims(y, axis=-1)
-    readout = bm.for_loop(self.model, ({}, x))
+    readout = bm.for_loop(self.model, x)
     l = bm.reduce_mean(bm.square(y - readout))
     mae = bm.reduce_mean(bm.abs(y - readout))
     return l, mae
@@ -576,7 +576,7 @@ class _AccBasedTask(_BaseTask):
 
   @bm.cls_jit(inline=True)
   def f_loss(self, x, y):
-    readout = bm.for_loop(self.model, ({}, x))
+    readout = bm.for_loop(self.model, x)
     l = bp.losses.cross_entropy_loss(readout, y)
     predicts = bm.argmax(readout, axis=2)
     acc = bm.reduce_mean(bm.cast(bm.equal(predicts, y), bm.float32))
@@ -627,7 +627,7 @@ class SMnistTask(_AccBasedTask):
 
   @bm.cls_jit(inline=True)
   def f_loss(self, x, y):
-    readout = bm.for_loop(self.model, ({}, x))[-1]
+    readout = bm.for_loop(self.model, x)[-1]
     l = bp.losses.cross_entropy_loss(readout, y)
     predicts = bm.argmax(readout, axis=1)
     acc = bm.reduce_mean(bm.cast(bm.equal(predicts, y), bm.float32))
@@ -641,7 +641,7 @@ class OzoneTask(_BaseTask):
 
   @bm.cls_jit(inline=True)
   def f_loss(self, x, y):
-    readout = bm.for_loop(self.model, ({}, x))
+    readout = bm.for_loop(self.model, x)
     weight = bm.cast(y, dtype=bm.float32) * 1.5 + 0.1
     l = bp.losses.cross_entropy_loss(readout, y, weight=weight)
     predicts = bm.argmax(readout, axis=2)

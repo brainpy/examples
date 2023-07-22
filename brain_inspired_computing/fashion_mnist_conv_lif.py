@@ -15,34 +15,34 @@ from jax import lax
 bm.set_environment(mode=bm.training_mode, dt=1.)
 
 
-class ConvLIF(bp.DynamicalSystemNS):
+class ConvLIF(bp.DynamicalSystem):
   def __init__(self, n_time: int, n_channel: int, tau: float = 5.):
     super().__init__()
     self.n_time = n_time
 
     lif_par = dict(keep_size=True, V_rest=0., V_reset=0., V_th=1.,
-                   tau=tau, spike_fun=bm.surrogate.arctan, input_var=False)
+                   tau=tau, spk_fun=bm.surrogate.arctan)
 
     self.block1 = bp.Sequential(
       bp.layers.Conv2d(1, n_channel, kernel_size=3, padding=(1, 1), b_initializer=None),
       bp.layers.BatchNorm2d(n_channel, momentum=0.9),
-      bp.neurons.LIF((28, 28, n_channel), **lif_par)
+      bp.dyn.Lif((28, 28, n_channel), **lif_par)
     )
     self.block2 = bp.Sequential(
       bp.layers.MaxPool2d(2, 2),  # 14 * 14
       bp.layers.Conv2d(n_channel, n_channel, kernel_size=3, padding=(1, 1), b_initializer=None),
       bp.layers.BatchNorm2d(n_channel, momentum=0.9),
-      bp.neurons.LIF((14, 14, n_channel), **lif_par),
+      bp.dyn.Lif((14, 14, n_channel), **lif_par),
     )
     self.block3 = bp.Sequential(
       bp.layers.MaxPool2d(2, 2),  # 7 * 7
       bp.layers.Flatten(),
       bp.layers.Dense(n_channel * 7 * 7, n_channel * 4 * 4, b_initializer=None),
-      bp.neurons.LIF(4 * 4 * n_channel, **lif_par),
+      bp.dyn.Lif(4 * 4 * n_channel, **lif_par),
     )
     self.block4 = bp.Sequential(
       bp.layers.Dense(n_channel * 4 * 4, 10, b_initializer=None),
-      bp.neurons.LIF(10, **lif_par),
+      bp.dyn.Lif(10, **lif_par),
     )
 
   def update(self, x):
@@ -53,7 +53,7 @@ class ConvLIF(bp.DynamicalSystemNS):
     return self.block4(x)
 
 
-class IFNode(bp.DynamicalSystemNS):
+class IFNode(bp.DynamicalSystem):
   """The Integrate-and-Fire neuron. The voltage of the IF neuron will
   not decay as that of the LIF neuron. The sub-threshold neural dynamics
   of it is as followed:
@@ -90,7 +90,7 @@ class IFNode(bp.DynamicalSystemNS):
     return spike
 
 
-class ConvIF(bp.DynamicalSystemNS):
+class ConvIF(bp.DynamicalSystem):
   def __init__(self, n_time: int, n_channel: int):
     super().__init__()
     self.n_time = n_time
@@ -131,6 +131,8 @@ class TrainMNIST:
     self.n_time = n_time
     self.f_opt = bp.optim.Adam(bp.optim.ExponentialDecay(0.2, 1, 0.9999),
                                train_vars=net.train_vars().unique())
+    self.f_grad = bm.grad(self.loss, grad_vars=self.f_opt.vars_to_train,
+                          has_aux=True, return_value=True)
 
   def inference(self, X, fit=False):
     def run_net(t):
@@ -154,11 +156,7 @@ class TrainMNIST:
   @bm.cls_jit
   def f_train(self, X, Y):
     bp.share.save(fit=True)
-    f_grad = bm.grad(self.loss,
-                     grad_vars=self.f_opt.vars_to_train,
-                     has_aux=True,
-                     return_value=True)
-    grads, l, n = f_grad(X, Y)
+    grads, l, n = self.f_grad(X, Y)
     self.f_opt.update(grads)
     return l, n
 
