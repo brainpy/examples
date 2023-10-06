@@ -35,12 +35,13 @@ Neuron Models
 
 
 
-Continuous-attractor Network
-----------------------------
+Attractor Networks
+------------------
 
-- `CANN 1D Oscillatory Tracking <cann/Mi_2014_CANN_1D_oscillatory_tracking.ipynb>`_
-- `(Si Wu, 2008): Continuous-attractor Neural Network 1D <cann/Wu_2008_CANN.ipynb>`_
-- `(Si Wu, 2008): Continuous-attractor Neural Network 2D <cann/Wu_2008_CANN_2D.ipynb>`_
+- `CANN 1D Oscillatory Tracking <attractors/Mi_2014_CANN_1D_oscillatory_tracking.ipynb>`_
+- `(Si Wu, 2008): Continuous-attractor Neural Network 1D <attractors/Wu_2008_CANN.ipynb>`_
+- `(Si Wu, 2008): Continuous-attractor Neural Network 2D <attractors/Wu_2008_CANN_2D.ipynb>`_
+- `Discrete Hopfield Network <attractors/discrete_hopfiled_network.ipynb>`_
 
 
 
