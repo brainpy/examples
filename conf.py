@@ -14,7 +14,7 @@
 # -- Project information -----------------------------------------------------
 
 project = 'BrainPy Examples'
-copyright = '2021, BrainExamples'
+copyright = '2023, BrainPy team'
 author = 'BrainPy team'
 
 # -- General configuration ---------------------------------------------------
