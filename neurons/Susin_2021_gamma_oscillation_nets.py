@@ -25,7 +25,7 @@ Ch_par = dict(Vth=-47.5, delta=0.5, tau_ref=1., tau_w=50, a=80, b=150, C=150, gL
               E_e=0., E_i=-80.)
 
 
-class AdEx(bp.NeuGroup):
+class AdEx(bp.dyn.NeuDyn):
   def __init__(
       self,
       size,
@@ -109,7 +109,7 @@ class AdEx(bp.NeuGroup):
     self.t_last_spike.value = bm.where(spike, tdi.t, self.t_last_spike)
 
 
-class PINGNet(bp.Network):
+class PINGNet(bp.DynSysGroup):
   def __init__(self, ext_varied_rates, ext_weight=4., method='exp_euler', dt=bm.get_dt()):
     super(PINGNet, self).__init__()
 
@@ -161,7 +161,7 @@ class PINGNet(bp.Network):
     self.ext_pop.freqs[0] = self.ext_varied_rates[tdi.i]
 
 
-class AINet(bp.Network):
+class AINet(bp.DynSysGroup):
   def __init__(self, ext_varied_rates, ext_weight=1., method='exp_euler', dt=bm.get_dt()):
     super(AINet, self).__init__()
 
@@ -213,7 +213,7 @@ class AINet(bp.Network):
     self.ext_pop.freqs[0] = self.ext_varied_rates[tdi.i]
 
 
-class INGNet(bp.Network):
+class INGNet(bp.DynSysGroup):
   def __init__(self, ext_varied_rates, ext_weight=0.9, method='exp_euler', dt=bm.get_dt()):
     super(INGNet, self).__init__()
 
@@ -294,7 +294,7 @@ class INGNet(bp.Network):
     self.ext_pop.freqs[0] = self.ext_varied_rates[tdi.i]
 
 
-class CHINGNet(bp.Network):
+class CHINGNet(bp.DynSysGroup):
   def __init__(self, ext_varied_rates, method='exp_euler', dt=bm.get_dt()):
     super(CHINGNet, self).__init__()
 
