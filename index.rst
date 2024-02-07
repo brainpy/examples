@@ -118,7 +118,7 @@ Large-Scale Modeling
 - `(Joglekar, et. al, 2018): Inter-areal Balanced Amplification Figure 1 <large_scale_modeling/Joglekar_2018_InterAreal_Balanced_Amplification_figure1.ipynb>`_
 - `(Joglekar, et. al, 2018): Inter-areal Balanced Amplification Figure 2 <large_scale_modeling/Joglekar_2018_InterAreal_Balanced_Amplification_figure2.ipynb>`_
 - `(Joglekar, et. al, 2018): Inter-areal Balanced Amplification Figure 5 <large_scale_modeling/Joglekar_2018_InterAreal_Balanced_Amplification_figure5.ipynb>`_
-- `(Joglekar, et. al, 2018): Inter-areal Balanced Amplification Figure 6 <large_scale_modeling/Joglekar_2018_InterAreal_Balanced_Amplification_taichi_customized_op.ipynb>`_
+- `(Joglekar, et. al, 2018): Inter-areal Balanced Amplification Taichi customized operators <large_scale_modeling/Joglekar_2018_InterAreal_Balanced_Amplification_taichi_customized_op.ipynb>`_
 - `Simulating 1-million-neuron networks with 1GB GPU memory <large_scale_modeling/EI_net_with_1m_neurons.ipynb>`_
 
 
