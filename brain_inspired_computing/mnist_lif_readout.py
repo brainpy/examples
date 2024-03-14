@@ -62,7 +62,7 @@ encoder = bp.encoding.PoissonEncoder(min_val=0., max_val=1.)
 
 def loss_fun(xs, ys):
   net.reset_state(batch_size=xs.shape[0])
-  xs = encoder(xs, num_step=args.T)
+  xs = encoder.multi_steps(xs, n_time=args.T * bm.get_dt())
   # shared arguments for looping over time
   indices = np.arange(args.T)
   outs = bm.for_loop(net.step_run, (indices, xs))
