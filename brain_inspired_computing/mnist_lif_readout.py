@@ -66,10 +66,10 @@ def loss_fun(xs, ys):
   # shared arguments for looping over time
   indices = np.arange(args.T)
   outs = bm.for_loop(net.step_run, (indices, xs))
-  out_fr = jnp.mean(outs, axis=0)
+  out_fr = bm.mean(outs, axis=0)
   ys_onehot = bm.one_hot(ys, 10, dtype=bm.float_)
   l = bp.losses.mean_squared_error(out_fr, ys_onehot)
-  n = jnp.sum(out_fr.argmax(1) == ys)
+  n = bm.sum(out_fr.argmax(1) == ys)
   return l, n
 
 
@@ -140,9 +140,9 @@ net.load_state_dict(state_dict['net'])
 runner = bp.DSRunner(net, data_first_axis='T')
 correct_num = 0
 for i in range(0, x_test.shape[0], 512):
-  X = encoder(x_test[i: i + 512], num_step=args.T)
+  X = encoder.multi_steps(x_test[i: i + 512], n_time=args.T * bm.get_dt())
   Y = y_test[i: i + 512]
-  out_fr = jnp.mean(runner.predict(inputs=X, reset_state=True), axis=0)
-  correct_num += jnp.sum(out_fr.argmax(1) == Y)
+  out_fr = bm.mean(runner.predict(inputs=X, reset_state=True), axis=0)
+  correct_num += bm.sum(out_fr.argmax(1) == Y)
 
 print('Max test accuracy: ', correct_num / x_test.shape[0])
