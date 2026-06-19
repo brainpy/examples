@@ -180,8 +180,8 @@ class DecisionMaking(bp.Network):
 
 
 def visualize_raster(ax, mon, t_start=0., title=None):
-  bp.visualize.raster_plot(mon['ts'], mon['A.spike'], markersize=1, ax=ax, color='', label="Group A")
-  bp.visualize.raster_plot(mon['ts'], mon['B.spike'], markersize=1, ax=ax, color='', label="Group B")
+  bp.visualize.raster_plot(mon['ts'], mon['A.spike'], markersize=1, ax=ax, color='r', label="Group A")
+  bp.visualize.raster_plot(mon['ts'], mon['B.spike'], markersize=1, ax=ax, color='b', label="Group B")
   if title:
     ax.set_title(title)
   ax.set_ylabel("Neuron Index")
