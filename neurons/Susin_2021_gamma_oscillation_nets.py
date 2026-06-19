@@ -390,7 +390,7 @@ def get_inputs(c_low, c_high, t_transition, t_min_plato, t_max_plato, t_gap, t_t
   ramp_down = np.linspace(c_high, c_low, num_transition)
   plato_base = np.ones(num_gap) * c_low
   while t < num_total:
-    num_plato = int(np.random.uniform(low=t_min_plato, high=t_max_plato, size=1) / dt)
+    num_plato = int(np.random.uniform(low=t_min_plato, high=t_max_plato) / dt)
     inputs.extend([plato_base, ramp_up, np.ones(num_plato) * c_high, ramp_down])
     t += (num_gap + num_transition + num_plato + num_transition)
   return bm.asarray(np.concatenate(inputs)[:num_total])
@@ -414,7 +414,7 @@ def signal_phase_by_Hilbert(signal, signal_time, low_cut, high_cut, sampling_spa
   taps = firwin(num_taps,
                 [low_cut / Nyquist, high_cut / Nyquist],
                 window=('kaiser', beta),
-                nyq=1.0,
+                fs=2.0,
                 pass_zero=False,
                 scale=True)
   filtered_signal = lfilter(taps, 1.0, signal)

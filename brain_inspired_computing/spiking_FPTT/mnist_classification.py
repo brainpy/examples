@@ -202,7 +202,7 @@ class FPTT_Trainer:
   @bm.cls_jit
   def fit(self, xs, ys, epoch):  # xs: (num_time, num_batch)
     progresses = bm.linspace(0., 1., xs.shape[0])
-    loss, reg = bm.for_loop(partial(self._train, epoch=epoch, y=ys), (xs, progresses), remat=True)
+    loss, reg = bm.for_loop(partial(self._train, epoch=epoch, y=ys), (xs, progresses))
     return loss, reg
 
 
@@ -270,7 +270,7 @@ for epoch in range(1, args.epochs + 1):
   num_data = 0
   for data, target in train_data():
     t0 = time.time()
-    model.reset_state(data.shape[0])
+    model.reset_state(data.shape[1])  # data is (num_time, num_batch); reset uses the batch axis
     losses, regs = trainer.fit(data, target, epoch)
     total_reg_loss = regs.sum().item()
     total_clf_loss = losses.sum().item()
